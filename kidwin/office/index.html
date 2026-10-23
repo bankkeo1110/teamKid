@@ -58,6 +58,7 @@ button, select, textarea { font: inherit; color: inherit; }
 .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--idle); }
 .pill.ok::before { background: #6FE0B0; }
 .pill.bad::before { background: var(--block); }
+.pill[hidden] { display: none; }
 .demo-flag { background: var(--sticky); color: #3B2E00; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
 
 /* ---------- layout */
@@ -185,7 +186,7 @@ aside { background: var(--panel); border-radius: 10px; border: 1px solid var(--l
     <div class="bar" role="progressbar" aria-label="Tiến độ sprint" aria-valuemin="0" aria-valuemax="100"><i id="sprintBar"></i></div>
     <b id="sprintNum">0/0</b>
   </div>
-  <div class="pills"><span id="pHerdr" class="pill">herdr</span><span id="pGh" class="pill">GitHub</span></div>
+  <div class="pills"><span id="pHerdr" class="pill">herdr</span><span id="pGh" class="pill">GitHub</span><span id="pSync" class="pill" hidden>Đồng bộ</span><button type="button" id="logout" class="pill" hidden style="cursor:pointer">Đăng xuất</button></div>
 </header>
 
 <main>
@@ -205,6 +206,7 @@ aside { background: var(--panel); border-radius: 10px; border: 1px solid var(--l
     <div class="pane" id="tab-chat" role="tabpanel">
       <div class="chat">
         <div class="chat-log" id="chatLog"></div>
+        <p class="nothing" id="chatRemote" hidden>Bạn đang xem từ xa nên chỉ đọc được. Để giao việc, nhắn KID trên máy của bạn (herdr hoặc KID Office trên máy).</p>
         <form id="chatForm">
           <textarea id="chatText" placeholder="Ví dụ: Làm trang đặt sân cầu lông, chọn ngày và giờ, đăng nhập Google." aria-label="Tin nhắn cho KID"></textarea>
           <div class="err" id="chatErr" role="alert"></div>
@@ -226,7 +228,10 @@ aside { background: var(--panel); border-radius: 10px; border: 1px solid var(--l
 // ======================================================================== data
 const qs = new URLSearchParams(location.search)
 // STATIC: served from the website (Vercel) — no team behind it, a simulated team runs in the browser
-const STATIC = qs.has('static') || !/^(localhost|127\.0\.0\.1|\[::1\]|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname)
+const LOCALHOST = /^(localhost|127\.0\.0\.1|\[::1\]|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname)
+const STATIC = qs.has('static')
+// ONLINE: served from the owner's website — read-only view of the real team, behind a password
+const ONLINE = (!LOCALHOST && !STATIC) || qs.has('online')
 let demo = null
 let TOKEN = qs.get('t')
 try { if (TOKEN) localStorage.setItem('kidOfficeToken', TOKEN); else TOKEN = localStorage.getItem('kidOfficeToken') } catch {}
@@ -646,7 +651,7 @@ function renderDetail() {
     ${tk ? `<h4>Ticket</h4><p style="margin:0;font-size:14px"><a href="${esc(tk.url)}" target="_blank" rel="noopener">${esc(tk.ticket)}</a> ${esc(tk.title)}</p>` : ''}
     ${steps ? `<h4>Các bước</h4><ul class="steps">${steps}</ul>` : ''}
     ${a.refusals ? `<p class="err">Bị cổng kiểm soát chặn ${a.refusals} lần${a.lastRefusal ? `, gần nhất: ${esc(a.lastRefusal.gate)}` : ''}.</p>` : ''}
-    <h4>Màn hình của ${a.role === 'kid' ? 'KID' : 'agent'}</h4><div class="term">${esc((a.tail || []).join('\n')) || 'Chưa đọc được màn hình.'}</div>`
+    <h4>Màn hình của ${a.role === 'kid' ? 'KID' : 'agent'}</h4><div class="term">${esc((a.tail || []).join('\n')) || (ONLINE ? 'Màn hình terminal chỉ xem được trên máy của bạn, không gửi lên mạng.' : 'Chưa đọc được màn hình.')}</div>`
   const av = avatar(p.look, 64, 'stand'); av.className = ''; box.querySelector('#bigAv').replaceWith(av)
 }
 function select(id) {
@@ -756,10 +761,30 @@ document.querySelectorAll('.view-switch button').forEach(b => b.addEventListener
 let since = 0, es = null
 function connect() {
   if (STATIC) { import('./demo-client.js').then(m => { demo = m.startDemo(handleData) }); return }
+  if (ONLINE) { pollOnline(); return }
   if (es) es.close()
   es = new EventSource(api(`/api/stream?since=${since}`))
   es.onmessage = m => handleData(JSON.parse(m.data))
   es.onerror = () => { document.getElementById('pHerdr').className = 'pill bad'; document.getElementById('pHerdr').textContent = 'mất kết nối' }
+}
+let pollTimer = null
+async function pollOnline() {
+  clearTimeout(pollTimer)
+  try {
+    const r = await fetch(`/api/state?p=${encodeURIComponent(PROJECT)}&since=${since}`, { credentials: 'same-origin', cache: 'no-store' })
+    if (r.status === 401) { location.reload(); return }
+    const d = await r.json()
+    const sync = document.getElementById('pSync'); sync.hidden = false
+    if (d.empty) { sync.className = 'pill bad'; sync.textContent = 'chưa có dữ liệu' }
+    else {
+      const age = Date.now() - (d.pushedAt || 0)
+      // the relay pushes at least every 2 minutes; older than 5 means the machine or KID Office is off
+      sync.className = 'pill ' + (age < 5 * 60e3 ? 'ok' : 'bad')
+      sync.textContent = age < 5 * 60e3 ? 'trực tiếp' : `máy tắt, ${ago(d.pushedAt)}`
+      handleData(d)
+    }
+  } catch { const sync = document.getElementById('pSync'); sync.hidden = false; sync.className = 'pill bad'; sync.textContent = 'mất mạng' }
+  pollTimer = setTimeout(pollOnline, document.hidden ? 20000 : 5000)
 }
 function handleData(d) {
     if (d.state) S = d.state
@@ -775,6 +800,7 @@ function handleData(d) {
     if (selected) renderDetail()
 }
 async function boot() {
+  if (ONLINE) return bootOnline()
   if (STATIC) {
     document.getElementById('project').innerHTML = '<option>demo-shop</option>'
     connect()
@@ -793,6 +819,40 @@ async function boot() {
   let saved = null; try { saved = localStorage.getItem('kidOfficeView') } catch {}
   if (qs.get('view') === '3d' || saved === '3d') setView('3d')
   requestAnimationFrame(frame)
+}
+
+async function bootOnline() {
+  requestAnimationFrame(frame)
+  document.getElementById('chatForm').hidden = true; document.getElementById('chatRemote').hidden = false
+  const box = document.getElementById('emptyOffice'), msg = document.getElementById('emptyMsg')
+  const show = html => { box.classList.add('show'); msg.innerHTML = html }
+  const me = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.json()).catch(() => null)
+  if (!me) return show('<p><b>Không tải được trang.</b></p><p>Kiểm tra mạng rồi tải lại.</p>')
+  if (!me.configured.password) return show('<p><b>Trang chưa được cài mật khẩu.</b></p><p>Trên Vercel, thêm biến môi trường <code>VIEW_PASSWORD</code> (ít nhất 8 ký tự) rồi deploy lại.</p>')
+  if (!me.loggedIn) {
+    show(`<form id="loginForm" style="display:grid;gap:10px;justify-items:center">
+      <p style="margin:0"><b>Văn phòng của Team KID</b></p><p style="margin:0">Nhập mật khẩu xem để vào.</p>
+      <input id="loginPw" type="password" autocomplete="current-password" aria-label="Mật khẩu xem" style="font:inherit;padding:8px 10px;border-radius:6px;border:1px solid #56638A;min-width:240px">
+      <button class="btn" type="submit">Vào văn phòng</button><span class="err" id="loginErr" role="alert" style="color:#FFB3A8"></span></form>`)
+    document.getElementById('loginPw').focus()
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+      e.preventDefault()
+      const r = await fetch('/api/login', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: document.getElementById('loginPw').value }) })
+      if (r.ok) location.reload(); else document.getElementById('loginErr').textContent = (await r.json().catch(() => ({}))).error || 'Không đăng nhập được.'
+    })
+    return
+  }
+  const lo = document.getElementById('logout'); lo.hidden = false
+  lo.onclick = async () => { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); location.reload() }
+  if (!me.configured.redis) return show('<p><b>Chưa nối kho dữ liệu.</b></p><p>Trên Vercel: Storage → thêm Upstash Redis → nối với project này, rồi deploy lại.</p>')
+  if (!me.paired || !me.projects.length) return show('<p><b>Máy của bạn chưa gửi dữ liệu.</b></p><p>Trong herdr trên máy bạn, mở tab mới và gõ <code>kid-online connect</code>.</p>')
+  const sel = document.getElementById('project')
+  if (!PROJECT || !me.projects.includes(PROJECT)) PROJECT = me.projects.includes('team-kid') ? 'team-kid' : me.projects[0]
+  sel.innerHTML = me.projects.map(p => `<option ${p === PROJECT ? 'selected' : ''}>${esc(p)}</option>`).join('')
+  sel.onchange = () => { PROJECT = sel.value; try { localStorage.setItem('kidOfficeProject', PROJECT) } catch {}; people.clear(); devSlots = []; EVENTS = []; since = 0; selected = null; firstSync = true; tagEls.forEach(e => { e.tag.remove(); e.bubble.remove() }); tagEls.clear(); pollOnline() }
+  pollOnline()
+  let saved = null; try { saved = localStorage.getItem('kidOfficeView') } catch {}
+  if (qs.get('view') === '3d' || saved === '3d') setView('3d')
 }
 
 // logo: KID's head

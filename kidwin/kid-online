@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# kid-online — show your real team on your website (Vercel), view-only, behind your password.
+#   kid-online connect [https://teamkid.vercel.app]   pair this machine with the site
+#   kid-online status                                  what was last sent, and whether it worked
+#   kid-online off                                     stop sending (the site keeps the last snapshot)
+set -uo pipefail
+CFG="$HOME/.teamkid/online.json"; ST="$HOME/.teamkid/online-status.json"
+DEFAULT_URL="https://teamkid.vercel.app"
+restart_office() { command -v kid-office >/dev/null && { kid-office --stop >/dev/null 2>&1; kid-office --bg >/dev/null 2>&1; }; }
+case "${1:-status}" in
+  connect)
+    url="${2:-}"; [ -n "$url" ] || { read -rp "Địa chỉ trang của bạn [$DEFAULT_URL]: " url; url="${url:-$DEFAULT_URL}"; }
+    url="${url%/}"; case "$url" in https://*|http://localhost:*|http://127.0.0.1:*) ;; *) echo "Địa chỉ phải bắt đầu bằng https://"; exit 1;; esac
+    read -rsp "Mật khẩu xem (VIEW_PASSWORD bạn đặt trên Vercel): " pw; echo
+    secret=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+    hash=$(printf %s "$secret" | sha256sum | cut -d' ' -f1)
+    body=$(python3 -c 'import json,sys; print(json.dumps({"password": sys.argv[1], "secretHash": sys.argv[2]}))' "$pw" "$hash")
+    out=$(curl -sS -m 20 -X POST -H 'content-type: application/json' --data-binary @- "$url/api/pair" <<<"$body") || { echo "Không kết nối được $url"; exit 1; }
+    if ! printf %s "$out" | grep -q '"ok":true'; then echo "Ghép nối thất bại: $(printf %s "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("error","?"))' 2>/dev/null || echo "$out")"; exit 1; fi
+    mkdir -p "$HOME/.teamkid"; umask 077
+    python3 -c 'import json,sys; json.dump({"url": sys.argv[1], "secret": sys.argv[2]}, open(sys.argv[3], "w"))' "$url" "$secret" "$CFG"
+    chmod 600 "$CFG"; restart_office
+    echo "✓ Đã ghép nối. Team của bạn sẽ hiện ở $url/office (đăng nhập bằng mật khẩu xem)."
+    echo "  Máy phải đang mở Start KID hoặc KID Office thì trang mới cập nhật." ;;
+  status)
+    [ -f "$CFG" ] || { echo "Chưa ghép nối. Chạy: kid-online connect"; exit 0; }
+    python3 - "$CFG" "$ST" <<'PY'
+import json, sys, time
+c = json.load(open(sys.argv[1]))
+print("Trang:", c["url"] + "/office")
+try:
+    s = json.load(open(sys.argv[2])); ago = int(time.time() - s["at"] / 1000)
+    print(f"Lần kiểm tra cuối: {ago} giây trước")
+    for p, r in s.get("projects", {}).items(): print(f"  {p}: {r}")
+except Exception: print("Chưa gửi lần nào. Mở Start KID hoặc chạy kid-office --bg.")
+PY
+    ;;
+  off)
+    [ -f "$CFG" ] && mv "$CFG" "$CFG.off" && restart_office && echo "Đã ngừng gửi. Bật lại: kid-online connect" || echo "Đang không bật." ;;
+  *) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac

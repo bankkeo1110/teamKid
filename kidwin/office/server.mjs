@@ -369,6 +369,55 @@ setInterval(async () => {
 
 const INDEX = path.join(HERE, 'index.html')
 const okHost = h => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(h || '')
+// ---------------------------------------------------------------- online relay (kid-online connect)
+// Pushes a sanitized snapshot of each project to the owner's site (Vercel) so the real team can be
+// watched from anywhere. Terminal text never leaves the machine: only status, one-line thoughts,
+// the board, commits and events. One push per project per change, at most every 8 seconds.
+const ONLINE_FILE = path.join(HOME, '.teamkid', 'online.json')
+const ONLINE_STATUS = path.join(HOME, '.teamkid', 'online-status.json')
+let online = null
+const loadOnline = () => { const o = DEMO ? null : readJson(ONLINE_FILE); online = o && o.url && o.secret ? o : null }
+loadOnline(); setInterval(loadOnline, 30000)
+const pushed = new Map()
+const sanitizeState = st => ({
+  ...st,
+  agents: (st.agents || []).map(({ tail, pane, ...a }) => ({ ...a, thought: a.thought ? String(a.thought).slice(0, 140) : null, lastRefusal: a.lastRefusal ? { gate: a.lastRefusal.gate, at: a.lastRefusal.at } : null })),
+})
+const digest = o => crypto.createHash('sha1').update(JSON.stringify(o)).digest('hex')
+let pushing = false
+async function pushOnline() {
+  if (!online || pushing) return
+  pushing = true
+  const projects = listProjects()
+  const status = { at: now(), url: online.url, projects: {} }
+  try {
+    for (const p of projects) {
+      if (!collectors.has(p)) collectors.set(p, new Collector(p))
+      const c = collectors.get(p)
+      c.lastSeen = now()                                  // keeps the 2-second loop ticking it
+      if (!c.state.updatedAt) continue
+      const st = sanitizeState(c.state)
+      const sig = digest({ ...st, updatedAt: 0 })
+      const prev = pushed.get(p) || {}
+      const lastEv = c.events.length ? c.events[c.events.length - 1].at : 0
+      const changed = sig !== prev.sig || lastEv !== prev.evAt
+      if (!(changed || now() - (prev.at || 0) > 120000) || now() - (prev.at || 0) < 8000) { status.projects[p] = prev.result || 'chưa gửi'; continue }
+      try {
+        const r = await fetch(online.url.replace(/\/+$/, '') + '/api/push', {
+          method: 'POST', headers: { authorization: 'Bearer ' + online.secret, 'content-type': 'application/json' },
+          body: JSON.stringify({ project: p, projects, state: st, events: c.events.slice(-150) }),
+          signal: AbortSignal.timeout(10000),
+        })
+        const result = r.ok ? 'ok' : r.status === 401 ? 'sai mã ghép nối (chạy lại kid-online connect)' : `lỗi ${r.status}`
+        pushed.set(p, { sig, evAt: lastEv, at: now(), result })
+        status.projects[p] = result
+      } catch { pushed.set(p, { ...prev, at: now(), result: 'không kết nối được' }); status.projects[p] = 'không kết nối được' }
+    }
+    try { fs.writeFileSync(ONLINE_STATUS, JSON.stringify(status, null, 1)) } catch {}
+  } finally { pushing = false }
+}
+setInterval(pushOnline, 4000)
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost')
   if (!okHost(req.headers.host)) { res.writeHead(403).end('forbidden host'); return }

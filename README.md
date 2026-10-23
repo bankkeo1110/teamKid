@@ -23,6 +23,15 @@ lời vài câu cấu hình. Chi tiết: [SETUP.md](SETUP.md).
 - Nhấp đúp **Cập nhật Team KID** trên Desktop, hoặc
 - trong herdr gõ `kid-update` (`kid-update --check` để chỉ xem có bản mới không).
 
+## Xem team thật từ xa (điện thoại, máy khác)
+
+Trang **/office** trên website của bạn hiện đúng team đang chạy trên máy bạn: văn phòng 2D/3D,
+bảng Scrum, hoạt động. Chỉ xem, có mật khẩu. Màn hình terminal của agent không bao giờ rời máy.
+
+1. Vercel → project → **Storage** → thêm **Upstash Redis** (gói miễn phí) và nối với project.
+2. Vercel → **Settings → Environment Variables** → thêm `VIEW_PASSWORD` (ít nhất 8 ký tự) → **Redeploy**.
+3. Trên máy, trong herdr: `kid-online connect` → nhập địa chỉ trang và mật khẩu. Xem trạng thái: `kid-online status`.
+
 ## Lệnh hằng ngày (trong herdr)
 
 | Lệnh | Việc |
@@ -32,6 +41,7 @@ lời vài câu cấu hình. Chi tiết: [SETUP.md](SETUP.md).
 | `kid-projects` | Liệt kê các app |
 | `kid-office` | Mở văn phòng ảo trên trình duyệt (`--demo` để xem thử) |
 | `kid-update` | Cập nhật Team KID từ GitHub |
+| `kid-online connect` | Gửi trạng thái team lên trang web của bạn (`status`, `off`) |
 
 ## Cấu trúc repo
 
@@ -43,6 +53,7 @@ lời vài câu cấu hình. Chi tiết: [SETUP.md](SETUP.md).
 | `patches/` | Các thay đổi Team KID trên Astragentic 4.1.1: Thomas → KID, sửa lỗi Linux/WSL |
 | `team-kid.bundle` | Dự án khởi đầu đã cài sẵn team |
 | `site/`, `scripts/build-site.sh`, `vercel.json` | Trang giới thiệu trên Vercel, có văn phòng mô phỏng chạy ngay trên trình duyệt |
+| `api/` | API trên Vercel cho chế độ xem từ xa: đăng nhập, ghép nối máy, nhận và trả trạng thái (Upstash Redis) |
 
 ## Ghi công
 

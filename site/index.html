@@ -84,7 +84,7 @@ footer a { color: #fff; }
   <div class="wrap">
     <div class="top">
       <div class="brand"><i aria-hidden="true"></i>Team KID</div>
-      <nav aria-label="Trang"><a href="#cai-dat">Cài đặt</a><a href="#team">Thành viên</a><a href="#cap-nhat">Cập nhật</a><a href="https://github.com/bankkeo1110/teamKid">GitHub</a></nav>
+      <nav aria-label="Trang"><a href="office/" style="color:#2B2200;background:var(--sticky);padding:2px 10px;border-radius:4px;font-weight:600">Văn phòng của tôi</a><a href="#cai-dat">Cài đặt</a><a href="#team">Thành viên</a><a href="#cap-nhat">Cập nhật</a><a href="https://github.com/bankkeo1110/teamKid">GitHub</a></nav>
     </div>
     <div class="lead">
       <h1>Một đội phần mềm toàn AI, làm việc theo Scrum trên máy của bạn</h1>
@@ -135,6 +135,13 @@ footer a { color: #fff; }
           <li>Nhấp đúp <b>Cập nhật Team KID</b> trên Desktop.</li>
           <li>Hoặc trong herdr, mở tab mới và gõ <code>kid-update</code>. Gõ <code>kid-update --check</code> để chỉ xem có bản mới không.</li>
         </ol>
+        <h2 style="margin-top:36px;font-size:24px">Xem team thật từ xa</h2>
+        <p class="sub" style="margin-bottom:12px">Trang <a href="office/">Văn phòng của tôi</a> hiện đúng team đang chạy trên máy bạn: ai đang làm gì, bảng Scrum, hoạt động. Chỉ xem, có mật khẩu.</p>
+        <ol>
+          <li>Trên Vercel, project này: Storage, thêm Upstash Redis. Settings, Environment Variables, thêm <code>VIEW_PASSWORD</code> (ít nhất 8 ký tự). Deploy lại.</li>
+          <li>Trên máy bạn, trong herdr gõ <code>kid-online connect</code>, nhập địa chỉ trang và mật khẩu.</li>
+        </ol>
+        <p class="note">Màn hình terminal của agent không bao giờ được gửi lên mạng. Máy phải đang mở Start KID thì trang mới cập nhật.</p>
         <p class="note">Cập nhật chỉ thay công cụ của Team KID (lệnh, KID Office, quy tắc). Code các app của bạn và GitHub Issues giữ nguyên.</p>
       </div>
       <dl class="facts">
