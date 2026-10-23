@@ -228,6 +228,8 @@ aside { background: var(--panel); border-radius: 10px; border: 1px solid var(--l
 // ======================================================================== data
 const qs = new URLSearchParams(location.search)
 // STATIC: served from the website (Vercel) — no team behind it, a simulated team runs in the browser
+// files next to this page, whether it was opened as /office or /office/
+const asset = f => new URL(f, location.pathname.endsWith('/') || /\.html$/.test(location.pathname) ? location.href : location.href.replace(/[?#].*$/, '') + '/').href
 const LOCALHOST = /^(localhost|127\.0\.0\.1|\[::1\]|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname)
 const STATIC = qs.has('static')
 // ONLINE: served from the owner's website — read-only view of the real team, behind a password
@@ -740,7 +742,7 @@ async function setView(v) {
     if (view3d) return
     wrap.classList.add('is3d')
     try {
-      const m = await import('./office3d.js')
+      const m = await import(asset('office3d.js'))
       if (VIEW !== '3d') return
       view3d = m.mount(wrap, window.KID)
       if (!wrap.querySelector('.hint3d')) wrap.querySelector('.office3d').insertAdjacentHTML('beforeend', '<span class="hint3d">Kéo để xoay, cuộn để phóng to, bấm vào người để xem chi tiết</span>')
@@ -748,7 +750,7 @@ async function setView(v) {
       console.error(e); wrap.classList.remove('is3d'); VIEW = '2d'
       document.querySelectorAll('.view-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === '2d')))
       document.getElementById('emptyOffice').classList.add('show')
-      document.getElementById('emptyMsg').innerHTML = '<p><b>Máy này không mở được bản 3D.</b></p><p>Trình duyệt chưa bật WebGL (tăng tốc phần cứng). Đang dùng bản 2D.</p>'
+      document.getElementById('emptyMsg').innerHTML = e && e.message === 'webgl' ? '<p><b>Máy này không mở được bản 3D.</b></p><p>Trình duyệt chưa bật WebGL (tăng tốc phần cứng). Đang dùng bản 2D.</p>' : '<p><b>Không tải được bản 3D.</b></p><p>Tải lại trang thử lại. Đang dùng bản 2D.</p>'
       setTimeout(renderStatus, 5000)
     }
   } else {
@@ -760,7 +762,7 @@ document.querySelectorAll('.view-switch button').forEach(b => b.addEventListener
 // ======================================================================== live data
 let since = 0, es = null
 function connect() {
-  if (STATIC) { import('./demo-client.js').then(m => { demo = m.startDemo(handleData) }); return }
+  if (STATIC) { import(asset('demo-client.js')).then(m => { demo = m.startDemo(handleData) }); return }
   if (ONLINE) { pollOnline(); return }
   if (es) es.close()
   es = new EventSource(api(`/api/stream?since=${since}`))
