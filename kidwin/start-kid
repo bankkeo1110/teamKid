@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# start-kid — what the "Start KID" desktop shortcut runs.
+#   Inside herdr already → start KID here.
+#   herdr already running → reattach (open a new tab there and type `kid <project>` for another app).
+#   Otherwise → pick a project (menu when you have several), open herdr, and the first shell herdr
+#   opens starts KID in that project (one-shot flag, see ~/.teamkid/env.sh).
+if [ "${HERDR_ENV:-}" = 1 ]; then exec kid "$@"; fi
+if pgrep -u "$(id -u)" -x herdr >/dev/null 2>&1; then exec herdr; fi
+mapfile -t ps < <(kid-projects)
+proj=""
+if [ $# -gt 0 ]; then proj="$1"
+elif [ ${#ps[@]} -eq 1 ]; then proj="${ps[0]}"
+elif [ ${#ps[@]} -gt 1 ]; then
+  echo "Mở Team KID cho dự án nào?"; PS3="Số: "
+  select p in "${ps[@]}"; do [ -n "${p:-}" ] && { proj="$p"; break; }; done
+fi
+[ -n "$proj" ] || { echo "Chưa có dự án Team KID nào. Tạo bằng: new-kid-project <tên>"; read -r; exit 1; }
+command -v kid-office >/dev/null && kid-office --bg >/dev/null 2>&1
+mkdir -p "$HOME/.teamkid" && printf '%s %s\n' "$(date +%s)" "$proj" > "$HOME/.teamkid/autostart"
+cd "$HOME/$proj" 2>/dev/null || true
+exec herdr

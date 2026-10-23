@@ -1,0 +1,27 @@
+From 63f9e588c9573417c60b33d75da998ab36567ec0 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 21 Oct 2026 10:07:55 +0700
+Subject: [PATCH 6/6] notes: 4.1.3 wording
+
+---
+ RELEASE-NOTES.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/RELEASE-NOTES.md b/RELEASE-NOTES.md
+index 255ab1e..51b61bf 100644
+--- a/RELEASE-NOTES.md
++++ b/RELEASE-NOTES.md
+@@ -1,8 +1,8 @@
+ # Astragentic 4.1.3
+ 
+ **Team KID fork.** `check-reachability.py` in an adapted project now reads the method's role table
+-from the applied release's README when the project's own root README does not carry one (a
+-greenfield project has no README, and check 1 failed on every fresh install). Also carried in this
++from the applied release's README when the project has no root README of its own (a greenfield
++project has none, and check 1 failed on every fresh install). Also carried in this
+ fork since 4.1.2: `install.sh` uses a portable in-place sed (GNU and BSD), and the dispatch mod's
+ TDD gate allocates its scratch directory with a template GNU `mktemp` accepts — on Linux and WSL
+ the old call refused every Builder commit.
+-- 
+2.43.0
+

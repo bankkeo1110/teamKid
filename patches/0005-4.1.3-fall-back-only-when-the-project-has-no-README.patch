@@ -1,0 +1,43 @@
+From ab68e6884704bd0cfe12b932ff29c49b24c78889 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 21 Oct 2026 10:07:50 +0700
+Subject: [PATCH 5/6] 4.1.3: fall back only when the project has no README
+
+---
+ harness/scripts/check-reachability.py | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/harness/scripts/check-reachability.py b/harness/scripts/check-reachability.py
+index 8d7314c..49d72c2 100755
+--- a/harness/scripts/check-reachability.py
++++ b/harness/scripts/check-reachability.py
+@@ -73,14 +73,10 @@ SKILL_GLOBS = [
+ ]
+ README = os.path.join(ROOT, "README.md")
+ # Team KID (4.1.3): in an adapted project the root README is the PROJECT's and rarely carries the
+-# method table; fall back to the README of the release the project applied (or staged).
++# method table, and a greenfield project has none at all; when it is absent, read the README of
++# the release the project applied (or staged).
+ if LAYOUT == "project":
+-    def _has_method(p):
+-        try:
+-            return "## The method" in open(p, encoding="utf-8").read()
+-        except OSError:
+-            return False
+-    if not _has_method(README):
++    if not os.path.isfile(README):
+         for _f in (os.path.join(ROOT, ".astraler", "state", "applied-version"),
+                    os.path.join(ROOT, ".astraler", "CANDIDATE")):
+             try:
+@@ -88,7 +84,7 @@ if LAYOUT == "project":
+             except OSError:
+                 continue
+             _r = os.path.join(ROOT, ".astraler", "releases", _v, "README.md")
+-            if _v and _has_method(_r):
++            if _v and os.path.isfile(_r):
+                 README = _r
+                 break
+ PROMPT = os.path.join(ROOT, "prompts", "ADAPT-HARNESS.md")
+-- 
+2.43.0
+

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team KID</title>
+<meta name="description" content="Team KID: một đội phát triển phần mềm gồm toàn AI agent, làm việc theo Scrum ngay trên máy Windows của bạn.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --wall: #34405E; --wall-2: #2A3450; --ink: #1E2230; --ink-2: #4A5164; --page: #E6ECE8; --paper: #F7FAF8;
+  --line: #C9D3CD; --sticky: #FFD45C; --work: #2A9D8F; --block: #E5675A; --focus: #1F6FEB;
+  --pixel: "Pixelify Sans", ui-monospace, monospace; --body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink: #E8EDF2; --ink-2: #A9B2BE; --page: #1B2030; --paper: #262C3D; --line: #3A4256; } }
+:root[data-theme="dark"] { --ink: #E8EDF2; --ink-2: #A9B2BE; --page: #1B2030; --paper: #262C3D; --line: #3A4256; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ink); font: 17px/1.6 var(--body); }
+a { color: var(--work); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+
+.hero { background: var(--wall); color: #EEF2F7; padding: 28px 0 0; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand { font-family: var(--pixel); font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.brand i { width: 22px; height: 22px; background: var(--work); box-shadow: inset 0 0 0 6px var(--work), inset 0 0 0 11px var(--sticky); display: inline-block; }
+.top nav { display: flex; gap: 18px; font-size: 15px; }
+.top nav a { color: #C9D2E3; text-decoration: none; }
+.top nav a:hover { color: #fff; }
+.lead { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: end; margin: 36px 0 24px; }
+.lead h1 { font-size: clamp(30px, 4.4vw, 52px); line-height: 1.12; margin: 0; letter-spacing: -.01em; font-weight: 700; max-width: 16ch; }
+.lead p { margin: 0; color: #C9D2E3; max-width: 46ch; font-size: 18px; }
+.stage { position: relative; border-radius: 12px 12px 0 0; overflow: hidden; border: 3px solid #1B2236; border-bottom: 0; background: #263048; }
+.stage iframe { display: block; width: 100%; height: min(78vh, 760px); border: 0; }
+.caption { color: #C9D2E3; font-size: 14px; margin: 0 0 10px; }
+.caption b { background: var(--sticky); color: #2B2200; font-weight: 600; padding: 1px 8px; border-radius: 4px; margin-right: 6px; }
+
+section { padding: 64px 0; }
+h2 { font-size: 30px; line-height: 1.2; margin: 0 0 12px; }
+.sub { color: var(--ink-2); margin: 0 0 28px; max-width: 60ch; }
+
+.cmd { display: flex; align-items: stretch; background: #151924; border-radius: 8px; overflow: hidden; max-width: 900px; }
+.cmd code { flex: 1; color: #CFE3DA; font: 15px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 14px 16px; overflow-x: auto; white-space: nowrap; }
+.cmd button { border: 0; background: var(--sticky); color: #2B2200; font-weight: 700; padding: 0 18px; cursor: pointer; font-size: 15px; }
+.steps { list-style: none; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; counter-reset: s; }
+.steps li { counter-increment: s; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 16px; font-size: 15.5px; }
+.steps li::before { content: counter(s); font-family: var(--pixel); font-size: 22px; font-weight: 700; color: var(--work); display: block; margin-bottom: 4px; }
+.note { font-size: 15px; color: var(--ink-2); margin-top: 18px; max-width: 70ch; }
+
+.team { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.member { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+.member canvas { width: 48px; height: 48px; image-rendering: pixelated; background: var(--wall); border-radius: 6px; }
+.member h3 { margin: 10px 0 2px; font-size: 19px; }
+.member .r { color: var(--ink-2); font-size: 14px; margin: 0 0 8px; }
+.member p { margin: 0; font-size: 15.5px; }
+
+.flow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.flow ol { margin: 0; padding-left: 22px; }
+.flow li { margin-bottom: 10px; }
+.facts { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; }
+.facts dt { font-weight: 600; margin-top: 10px; }
+.facts dt:first-child { margin-top: 0; }
+.facts dd { margin: 2px 0 0; color: var(--ink-2); font-size: 15.5px; }
+
+footer { background: var(--wall); color: #C9D2E3; padding: 28px 0; font-size: 14px; }
+footer a { color: #fff; }
+
+@media (max-width: 900px) {
+  .lead, .flow { grid-template-columns: 1fr; }
+  .steps, .team { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .steps, .team { grid-template-columns: 1fr; }
+  .stage iframe { height: 92vh; }
+  section { padding: 44px 0; }
+}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><i aria-hidden="true"></i>Team KID</div>
+      <nav aria-label="Trang"><a href="#cai-dat">Cài đặt</a><a href="#team">Thành viên</a><a href="#cap-nhat">Cập nhật</a><a href="https://github.com/bankkeo1110/teamKid">GitHub</a></nav>
+    </div>
+    <div class="lead">
+      <h1>Một đội phần mềm toàn AI, làm việc theo Scrum trên máy của bạn</h1>
+      <p>Bạn nói yêu cầu với KID. Product Owner viết spec cho bạn duyệt, các Developer code song song, Tester dùng thử, KID báo lại kết quả. Mọi việc nằm trên GitHub Issues để bạn theo dõi.</p>
+    </div>
+    <p class="caption"><b>Bản mô phỏng</b>Team giả lập chạy ngay trên trình duyệt. Bấm 2D / 3D để đổi, kéo để xoay văn phòng.</p>
+    <div class="stage">
+      <iframe src="office/?static&amp;view=3d" title="KID Office: văn phòng mô phỏng của Team KID" loading="eager"></iframe>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="cai-dat">
+    <div class="wrap">
+      <h2>Cài đặt trên Windows</h2>
+      <p class="sub">Mở PowerShell (bấm Start, gõ PowerShell) rồi dán lệnh này. Trình cài tự làm phần còn lại và chỉ dừng khi cần bạn.</p>
+      <div class="cmd"><code id="installCmd">irm https://raw.githubusercontent.com/bankkeo1110/teamKid/main/install.ps1 | iex</code><button type="button" data-copy="installCmd">Sao chép</button></div>
+      <ol class="steps">
+        <li>Bấm Yes khi Windows xin quyền cài WSL. Có thể phải khởi động lại, trình cài tự chạy tiếp.</li>
+        <li>Đặt tên và mật khẩu cho tài khoản Linux bên trong máy.</li>
+        <li>Đăng nhập Claude và GitHub trên trình duyệt khi được hỏi.</li>
+        <li>Trả lời câu hỏi cấu hình: tracker GitHub, mã ticket KID. Xong thì mở Start KID trên Desktop.</li>
+      </ol>
+      <p class="note">Cần Windows 10 (bản 2004 trở lên) hoặc Windows 11, tài khoản Claude Pro hoặc Max, và một tài khoản GitHub. Team chạy trên máy bạn, dùng lượt Claude của bạn; trang này chỉ là bản giới thiệu.</p>
+    </div>
+  </section>
+
+  <section id="team" style="background: var(--paper); border-block: 1px solid var(--line)">
+    <div class="wrap">
+      <h2>Thành viên</h2>
+      <p class="sub">Mỗi thành viên là một phiên Claude Code riêng, có hợp đồng vai trò và chỗ ngồi riêng trong herdr.</p>
+      <div class="team">
+        <article class="member"><canvas data-who="kid" width="16" height="16" aria-hidden="true"></canvas><h3>KID</h3><p class="r">Scrum Master</p><p>Người duy nhất bạn nói chuyện. Đọc bảng việc, giao ticket, gom kết quả, hỏi bạn khi cần quyết định.</p></article>
+        <article class="member"><canvas data-who="po" width="16" height="16" aria-hidden="true"></canvas><h3>Product Owner</h3><p class="r">Spec và ticket</p><p>Hỏi kỹ yêu cầu, viết spec để bạn duyệt, cắt thành ticket nhỏ có thứ tự trên GitHub.</p></article>
+        <article class="member"><canvas data-who="dev" width="16" height="16" aria-hidden="true"></canvas><h3>Developer</h3><p class="r">Một người cho mỗi ticket</p><p>Viết test trước rồi code, tự review, dọn code, trong một nhánh và thư mục riêng. Nhiều người chạy song song.</p></article>
+        <article class="member"><canvas data-who="qa" width="16" height="16" aria-hidden="true"></canvas><h3>Tester</h3><p class="r">Dùng thử như người thật</p><p>Chạy sản phẩm, bấm thử từng luồng, báo lỗi thành ticket mới trước khi merge.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="cap-nhat">
+    <div class="wrap flow">
+      <div>
+        <h2>Cập nhật không cần tải lại</h2>
+        <p class="sub">Bản mới được đưa lên GitHub. Máy bạn kéo về bằng một trong hai cách:</p>
+        <ol>
+          <li>Nhấp đúp <b>Cập nhật Team KID</b> trên Desktop.</li>
+          <li>Hoặc trong herdr, mở tab mới và gõ <code>kid-update</code>. Gõ <code>kid-update --check</code> để chỉ xem có bản mới không.</li>
+        </ol>
+        <p class="note">Cập nhật chỉ thay công cụ của Team KID (lệnh, KID Office, quy tắc). Code các app của bạn và GitHub Issues giữ nguyên.</p>
+      </div>
+      <dl class="facts">
+        <dt>Chạy ở đâu</dt><dd>Trên máy Windows của bạn, trong WSL (Linux chạy ngầm), mỗi agent một ô trong herdr.</dd>
+        <dt>Tốn gì</dt><dd>Lượt dùng Claude của bạn khi các agent làm việc. KID Office và trang này không dùng token.</dd>
+        <dt>Dữ liệu nằm đâu</dt><dd>Code trong repo GitHub của từng app, ticket trên GitHub Issues, mọi thứ còn lại trên máy bạn.</dd>
+        <dt>Xây trên</dt><dd><a href="https://github.com/thientranhung/astragentic">Astragentic</a> (Apache 2.0), đổi Thomas thành KID, sửa để chạy trên Linux và WSL.</dd>
+      </dl>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">Team KID. Mã nguồn: <a href="https://github.com/bankkeo1110/teamKid">github.com/bankkeo1110/teamKid</a></div>
+</footer>
+
+<script>
+document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+  const t = document.getElementById(b.dataset.copy).textContent
+  try { await navigator.clipboard.writeText(t); b.textContent = 'Đã chép' } catch { b.textContent = 'Chọn và chép tay' }
+  setTimeout(() => { b.textContent = 'Sao chép' }, 2000)
+}))
+// tiny pixel portraits, same people as the office
+const L = {
+  kid: { skin: '#F1C29A', hair: '#2B2420', shirt: '#2A9D8F', hat: '#E5675A' },
+  po: { skin: '#E8B48C', hair: '#6B3F26', shirt: '#7B5EA7', glasses: 1, long: 1 },
+  dev: { skin: '#F0C7A0', hair: '#1F1B18', shirt: '#3D7DD8', phones: 1 },
+  qa: { skin: '#F3CBA5', hair: '#B5523B', shirt: '#8A9099', vest: 1 },
+}
+document.querySelectorAll('canvas[data-who]').forEach(c => {
+  const g = c.getContext('2d'), l = L[c.dataset.who], R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x + 2, y + 1, w, h) }
+  R(1, 10, 10, 5, l.shirt); if (l.vest) { R(1, 10, 3, 5, '#F2C14E'); R(8, 10, 3, 5, '#F2C14E') }
+  R(2, 3, 8, 7, l.skin); R(2, 1, 8, 3, l.hair); R(1, 2, 1, l.long ? 7 : 4, l.hair); R(10, 2, 1, l.long ? 7 : 4, l.hair)
+  R(4, 6, 1, 1, '#1B1B22'); R(7, 6, 1, 1, '#1B1B22'); R(5, 8, 2, 1, '#B7695A')
+  if (l.hat) { R(1, 0, 10, 3, l.hat); R(2, 3, 9, 1, '#B94C40') }
+  if (l.glasses) { R(3, 5, 3, 2, '#2B2B33'); R(6, 5, 3, 2, '#2B2B33') }
+  if (l.phones) { R(2, 0, 8, 1, '#22252F'); R(0, 4, 2, 3, '#22252F'); R(10, 4, 2, 3, '#22252F') }
+})
+</script>
+</body>
+</html>

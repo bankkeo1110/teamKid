@@ -1,0 +1,44 @@
+From ecbbd808fcf9966c524d8ca19fd3b267631cf400 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 21 Oct 2026 09:53:19 +0700
+Subject: [PATCH 2/6] install.sh: portable in-place sed (GNU + BSD)
+
+---
+ install.sh | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/install.sh b/install.sh
+index 494ac90..ee11642 100755
+--- a/install.sh
++++ b/install.sh
+@@ -33,6 +33,9 @@ else
+ fi
+ RELEASE_NOTES="$HARNESS_ROOT/RELEASE-NOTES.md"
+ VERSION="$(cat "$HARNESS_ROOT/VERSION")"
++# Portable in-place sed (Team KID): BSD sed needs `-i ''`, GNU sed rejects it.
++sed_inplace() { local f="${@: -1}"; sed "${@:1:$#-1}" "$f" > "$f.kidtmp" && cat "$f.kidtmp" > "$f" && rm -f "$f.kidtmp"; }
++
+ 
+ for REQUIRED in "$PAYLOAD" "$ADAPT_PROMPT" "$UNINSTALL_PROMPT" "$ADOPTION_SKILLS" "$RELEASE_NOTES" \
+                 "$HARNESS_ROOT/README.md" "$HARNESS_ROOT/check-requirements.sh"; do
+@@ -139,7 +142,7 @@ if [ -f "$LEDGER" ]; then
+   fi
+   HEADER_OLD=$(sed -n '3p' "$LEDGER")
+   if [ "$HEADER_OLD" != "$HEADER_NEW" ]; then
+-    sed -i '' "3s|.*|$HEADER_NEW|" "$LEDGER"
++    sed_inplace "3s|.*|$HEADER_NEW|" "$LEDGER"
+     echo "Ledger header auto-updated: $ACTUAL_COUNT entries ($FIRST_AST … $LAST_AST)"
+   fi
+ fi
+@@ -154,7 +157,7 @@ for README in "$HARNESS_ROOT/README.md" "$HARNESS_ROOT/README.vn.md"; do
+   [ -f "$README" ] && [ -f "$LEDGER" ] || continue
+   LEDGER_COUNT=$(grep -c '^### AST-' "$LEDGER")
+   BEFORE=$(cat "$README")
+-  sed -i '' -E "s|badge/version-[0-9]+\.[0-9]+\.[0-9]+-blue|badge/version-$VERSION-blue|g; \
++  sed_inplace -E "s|badge/version-[0-9]+\.[0-9]+\.[0-9]+-blue|badge/version-$VERSION-blue|g; \
+                 s|badge/failure_modes-[0-9]+_measured-red|badge/failure_modes-${LEDGER_COUNT}_measured-red|g; \
+                 s|releases/[0-9]+\.[0-9]+\.[0-9]+/ADAPT-HARNESS\.md|releases/$VERSION/ADAPT-HARNESS.md|g; \
+                 s|releases/[0-9]+\.[0-9]+\.[0-9]+/check-requirements\.sh|releases/$VERSION/check-requirements.sh|g; \
+-- 
+2.43.0
+

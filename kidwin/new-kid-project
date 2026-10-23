@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# new-kid-project — create a new app repo with Team KID installed, ready for `kid`.
+#
+#   new-kid-project <name> [--prefix ABC] [--public]
+#
+# Creates ~/<name>: git repo, Astragentic (KID fork) harness, project rules and plugs, git hooks,
+# a private GitHub repo with labels, then opens Claude once for the mattpocock-skills setup and
+# finishes the adaptation. Re-running on the same name resumes where it stopped.
+set -uo pipefail
+
+TEMPLATE="$HOME/.teamkid/project-template"
+PKG="$HOME/astragentic-kid"
+
+say()  { printf '\n\033[1;36m▶ %s\033[0m\n' "$*"; }
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
+die()  { printf '\n\033[31m✗ %s\033[0m\n' "$*"; exit 1; }
+
+NAME=""; PREFIX=""; VIS="--private"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --prefix) PREFIX="${2:-}"; shift 2 ;;
+    --public) VIS="--public"; shift ;;
+    -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*) die "Không hiểu tuỳ chọn: $1" ;;
+    *) NAME="$1"; shift ;;
+  esac
+done
+[ -n "$NAME" ] || { read -rp "Tên app (chữ thường, gạch ngang, vd shop-app): " NAME; }
+[[ "$NAME" =~ ^[a-z0-9][a-z0-9-]{1,38}$ ]] || die "Tên '$NAME' không hợp lệ: chỉ dùng a-z, 0-9 và dấu '-'."
+DEST="$HOME/$NAME"
+
+if [ -z "$PREFIX" ]; then
+  # first word of the name, letters only, max 5, upper-case: shop-app -> SHOP
+  PREFIX="$(printf '%s' "${NAME%%-*}" | tr -cd 'a-z' | cut -c1-5 | tr 'a-z' 'A-Z')"
+  [ ${#PREFIX} -ge 2 ] || PREFIX="APP"
+  read -rp "Mã ticket (prefix) cho $NAME [$PREFIX]: " p; [ -n "$p" ] && PREFIX="$p"
+fi
+PREFIX="$(printf '%s' "$PREFIX" | tr 'a-z' 'A-Z')"
+[[ "$PREFIX" =~ ^[A-Z]{2,8}$ ]] || die "Prefix '$PREFIX' không hợp lệ: 2–8 chữ cái."
+
+# ---------------------------------------------------------------- preflight
+say "Kiểm tra máy"
+command -v claude >/dev/null || die "Chưa có Claude Code. Chạy lại Install-TeamKID.cmd."
+command -v gh >/dev/null && gh auth status >/dev/null 2>&1 || die "Chưa đăng nhập GitHub. Chạy: gh auth login"
+[ -x "$PKG/install.sh" ] || die "Không thấy $PKG. Chạy lại Install-TeamKID.cmd."
+[ -d "$TEMPLATE" ] || die "Không thấy $TEMPLATE. Chạy lại Install-TeamKID.cmd."
+ok "claude, gh, astragentic-kid $(cat "$PKG/VERSION")"
+VERSION="$(cat "$PKG/VERSION")"
+
+# ---------------------------------------------------------------- 1. repo + harness
+if [ ! -f "$DEST/.astraler/state/applied-version" ]; then
+  say "Tạo $DEST và cài Team KID (2–4 phút, có chạy bộ tự kiểm tra)"
+  if [ -e "$DEST" ] && [ -n "$(ls -A "$DEST" 2>/dev/null)" ] && [ ! -d "$DEST/.git" ]; then
+    die "$DEST đã tồn tại và không phải repo git. Chọn tên khác."
+  fi
+  mkdir -p "$DEST" && cd "$DEST" || die "Không tạo được $DEST"
+  [ -d .git ] || { git init -q -b main && git commit -q --allow-empty -m "init"; }
+  mkdir -p docs/agents
+  printf '# Issue tracker: GitHub Issues\n\nThis project tracks every ticket on GitHub Issues (gh CLI). Ticket ids are prefixed `%s-` in titles.\n' "$PREFIX" > docs/agents/issue-tracker.md
+  git add docs/agents/issue-tracker.md && git commit -q -m "Declare GitHub Issues as the tracker"
+  ( cd "$PKG" && ./install.sh "$DEST" >/tmp/kid-install-$$.log 2>&1 && ./install.sh "$DEST" --apply >>/tmp/kid-install-$$.log 2>&1 ) \
+    || { tail -20 /tmp/kid-install-$$.log; die "Cài harness thất bại (log: /tmp/kid-install-$$.log)"; }
+  ok "harness $VERSION đã cài"
+else
+  cd "$DEST" || die "Không vào được $DEST"
+  ok "harness đã có ($(cat .astraler/state/applied-version)) — tiếp tục"
+fi
+
+# ---------------------------------------------------------------- 2. project files
+if [ ! -f CLAUDE.md ]; then
+  say "Viết quy tắc dự án, plugs và hooks"
+  sed -e "s/{{NAME}}/$NAME/g" -e "s/{{PREFIX}}/$PREFIX/g" -e "s/{{VERSION}}/$VERSION/g" "$TEMPLATE/CLAUDE.md" > CLAUDE.md
+  printf '# AGENTS.md\n\nThis project'"'"'s entry doc is `CLAUDE.md` — tracker, ticket prefix (`%s`), verification rules and ledger paths live there. Read it first.\n' "$PREFIX" > AGENTS.md
+  sed -e "s/{{NAME}}/$NAME/g" -e "s/{{PREFIX}}/$PREFIX/g" "$TEMPLATE/ledger.md" > docs/ledger.md
+  mkdir -p .astraler/project && cp "$TEMPLATE"/plugs/* .astraler/project/ && chmod +x .astraler/project/*.sh
+  mkdir -p .astraler/project/overlays && cp "$TEMPLATE"/overlays/* .astraler/project/overlays/
+
+  # Model/effort/arm choices: same as the owner's team-kid project when it exists, else defaults.
+  if [ -f "$HOME/team-kid/.agents/orchestrator.md" ]; then
+    cp "$HOME/team-kid/.agents/orchestrator.md" .agents/orchestrator.md
+  else
+    sed -i -e 's/| kid | claude | claude-opus-5 |/| kid | claude | claude-opus-5-5 |/' \
+           -e 's/| shaper | claude | claude-opus-5 |/| shaper | claude | claude-opus-5-5 |/' \
+           -e 's/| builder | claude | claude-sonnet-5 |/| builder | claude | claude-sonnet-5-5 |/' \
+           -e 's/| qa | claude | claude-sonnet-5 |/| qa | claude | claude-sonnet-5-5 |/' \
+           -e 's/^| ticket | yes |$/| ticket | no |/' -e 's/^| spec | yes |$/| spec | no |/' -e 's/^| slice | yes |$/| slice | no |/' \
+           .agents/orchestrator.md
+  fi
+  sed -i -E "s/^\| workspace-label \| \`[^\`]*\` \|/| workspace-label | \`$NAME\` |/" .agents/orchestrator.md
+  scripts/check-payload-drift.sh --update .agents/orchestrator.md >/dev/null
+  .astraler/project/install-hooks.sh >/dev/null
+
+  cat > .astraler/state/ADAPTATION-REPORT.md <<EOF
+# ADAPTATION-REPORT — Astragentic $VERSION (KID fork), fresh install via new-kid-project · result: PENDING
+
+- DIFFERS \`.agents/orchestrator.md\` — owner scaffold, preserved: copied from the owner's team-kid choices, workspace-label \`$NAME\`. Recorded in \`.agents/payload-drift-manifest.json\`.
+- DIFFERS \`.claude/settings.json\` — owner-kept, identical hook set to the release.
+- Not materialised on purpose (GitHub Issues is the tracker): \`.agents/skills/jira-issue-tracker/SKILL.md\`, \`.agents/skills/linear-issue-tracker/SKILL.md\`, \`.claude/skills/jira-issue-tracker/SKILL.md\`, \`.claude/skills/linear-issue-tracker/SKILL.md\`.
+- Plug \`tracker-state.sh\` — written: gh issue search by title → \`<state> <assignee|->\`.
+- Plug \`tracker-status.sh\` — written: open / in progress / ready / waiting-on-owner counts.
+- Plug \`ticket-done.sh\` — written: nothing owed yet.
+- Plug \`cleanup-worktree.sh\` — written: nothing allocated per worktree yet (greenfield).
+- Plug \`work-in-flight.sh\` — written: pgrep for test/build/migrate runners.
+- Plug \`not-a-skill.txt\` — written, empty.
+- Hooks: pre-commit drift check and pre-push gate via \`.astraler/project/install-hooks.sh\` (per clone).
+- Project ledger at \`docs/ledger.md\`, named in \`CLAUDE.md\`. Ticket prefix \`$PREFIX\`.
+EOF
+  git add .agents .claude scripts .astraler/state .astraler/CANDIDATE .astraler/project .astraler/astragentic.sh \
+          ".astraler/releases/$VERSION" CLAUDE.md AGENTS.md docs 2>/dev/null
+  [ -f .astraler/PROJECT_NAME ] && git add .astraler/PROJECT_NAME
+  git commit -q -m "Install Team KID harness (Astragentic $VERSION, KID fork)" && ok "đã commit"
+else
+  ok "quy tắc dự án đã có"
+fi
+
+# ---------------------------------------------------------------- 3. GitHub repo
+say "Repo GitHub"
+if ! git remote get-url origin >/dev/null 2>&1; then
+  gh repo create "$NAME" $VIS --source . --push >/dev/null || die "Không tạo được repo GitHub '$NAME' (có thể tên đã tồn tại)."
+fi
+for l in todo needs-owner needs-info needs-triage ready-for-agent ready-for-human wontfix; do gh label create "$l" --force >/dev/null 2>&1 || true; done
+ok "$(gh repo view --json url -q .url)"
+
+# ---------------------------------------------------------------- 4. setup skill (owner-typed)
+if [ ! -f docs/agents/triage-labels.md ] || [ ! -f docs/agents/domain.md ]; then
+  say "Cấu hình mattpocock-skills — bước duy nhất bạn cần trả lời"
+  cat <<EOF
+  Claude sẽ mở và tự chạy lệnh cấu hình. Nếu được hỏi:
+   • Do you trust this folder?  → Yes
+   • Issue tracker              → GitHub
+   • Ticket prefix              → $PREFIX
+   • Các câu còn lại            → Enter (mặc định)
+  Khi Claude báo xong, gõ  /exit  (không cần commit — script tự làm).
+EOF
+  read -rp "  Nhấn Enter để bắt đầu… " _
+  claude /mattpocock-skills:setup-matt-pocock-skills
+  [ -f docs/agents/triage-labels.md ] && [ -f docs/agents/domain.md ] \
+    || die "Chưa thấy docs/agents/triage-labels.md và domain.md. Chạy lại: new-kid-project $NAME"
+fi
+ok "cấu hình xong"
+
+# ---------------------------------------------------------------- 5. finish adaptation
+if ! ./scripts/check-requirements.sh . --adapted >/dev/null 2>&1; then
+  say "Hoàn tất phần thích nghi (Claude tự làm, 1–3 phút)"
+  claude -p --dangerously-skip-permissions --model claude-sonnet-5-5 \
+"Read .astraler/releases/$VERSION/ADAPT-HARNESS.md sections 2.3 to 2.6 only and finish them for this repo:
+verify docs/agents/issue-tracker.md, docs/agents/triage-labels.md and docs/agents/domain.md exist;
+make sure the ticket prefix is $PREFIX in CLAUDE.md and in issue-tracker.md;
+confirm GitHub Issues is reachable with gh and supports assignees and blocked_by edges;
+split issue-tracker.md into the pointer half (keep) and move generic mechanics out, saying they live in the github-issue-tracker adapter.
+Add one line per decision to .astraler/state/ADAPTATION-REPORT.md and change its result from PENDING to APPLIED if everything is satisfied.
+Then stage only docs/ CLAUDE.md AGENTS.md .astraler/state and commit with message 'Finish Team KID adaptation'. Do not push." \
+    2>&1 | tail -8
+fi
+git add -A docs CLAUDE.md AGENTS.md .astraler/state 2>/dev/null
+git diff --cached --quiet || git commit -q -m "Team KID project setup"
+git push -q -u origin HEAD 2>/dev/null && ok "đã push" || warn "chưa push được"
+
+say "Kiểm tra cuối"
+if ./scripts/check-requirements.sh . --adapted >/dev/null 2>&1; then ok "tất cả đạt"
+else ./scripts/check-requirements.sh . --adapted 2>&1 | grep -E '\[MISS\]' ; warn "còn mục chưa đạt ở trên — gửi ảnh cho Claude"; fi
+
+printf '\n\033[1;32m✔ %s sẵn sàng.\033[0m  Mở bằng shortcut "Start KID" và chọn %s, hoặc gõ:  kid %s\n' "$NAME" "$NAME" "$NAME"

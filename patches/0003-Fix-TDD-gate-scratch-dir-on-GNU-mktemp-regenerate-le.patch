@@ -1,0 +1,135 @@
+From b23098cb348769f0f4fe54dc66a930a0871d8d81 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 21 Oct 2026 10:03:16 +0700
+Subject: [PATCH 3/6] Fix TDD gate scratch dir on GNU mktemp; regenerate ledger
+ index; badges
+
+---
+ README.md                                              | 10 +++++-----
+ README.vn.md                                           | 10 +++++-----
+ harness/.agents/memory/INDEX.md                        |  6 +++---
+ .../skills/astragentic-dispatch/hooks/register.tsx     |  2 +-
+ 4 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/README.md b/README.md
+index bdd86ac..e8d4082 100644
+--- a/README.md
++++ b/README.md
+@@ -4,7 +4,7 @@
+ </p>
+ 
+ <p align="center">
+-  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/version-4.1.1-blue" alt="version"></a>
++  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/version-4.1.2-blue" alt="version"></a>
+   <img src="https://img.shields.io/badge/runtime-Claude_Code-green" alt="runtime">
+   <a href="harness/.agents/memory/recurring-failure-modes.md"><img src="https://img.shields.io/badge/failure_modes-67_measured-red" alt="failure modes"></a>
+   <a href="https://astragentic.thisistool.com/"><img src="https://img.shields.io/badge/docs-astragentic.thisistool.com-E53625" alt="documentation"></a>
+@@ -42,15 +42,15 @@ prove what happened.
+ # 1. In your project's root, stage the latest release (no project file is written)
+ cd /path/to/your-repo
+ curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash
+-#    …or pin a version:  | bash -s -- 4.1.1
++#    …or pin a version:  | bash -s -- 4.1.2
+ 
+ # 2. Verify your machine has what's needed
+-bash .astraler/releases/4.1.1/check-requirements.sh
++bash .astraler/releases/4.1.2/check-requirements.sh
+ #    Later, from inside the project: what is installed, what is newest, what changed, how to upgrade
+ .astraler/astragentic.sh update
+ 
+ # 3. Run the adaptive installer in Claude Code
+-claude "Read .astraler/releases/4.1.1/ADAPT-HARNESS.md completely and execute it."
++claude "Read .astraler/releases/4.1.2/ADAPT-HARNESS.md completely and execute it."
+ 
+ # 4. Start the router
+ claude --dangerously-skip-permissions --agent kid --model claude-opus-5 --effort medium --advisor fable
+@@ -305,7 +305,7 @@ the release shipped with.
+ ```bash
+ cd /path/to/your-repo
+ curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash                      # latest, stage only
+-curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash -s -- 4.1.1         # pin a version
++curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash -s -- 4.1.2         # pin a version
+ curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash -s -- latest --plan  # show what --apply would write
+ curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash -s -- latest --apply # write the payload in
+ ```
+diff --git a/README.vn.md b/README.vn.md
+index ea1f494..b62a9b1 100644
+--- a/README.vn.md
++++ b/README.vn.md
+@@ -4,7 +4,7 @@
+ </p>
+ 
+ <p align="center">
+-  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/version-4.1.1-blue" alt="version"></a>
++  <a href="RELEASE-NOTES.md"><img src="https://img.shields.io/badge/version-4.1.2-blue" alt="version"></a>
+   <img src="https://img.shields.io/badge/runtime-Claude_Code-green" alt="runtime">
+   <a href="harness/.agents/memory/recurring-failure-modes.md"><img src="https://img.shields.io/badge/failure_modes-67_measured-red" alt="failure modes"></a>
+   <a href="https://astragentic.thisistool.com/vi/"><img src="https://img.shields.io/badge/docs-astragentic.thisistool.com-E53625" alt="documentation"></a>
+@@ -42,15 +42,15 @@ nhau, review xong trong một vòng, và artifact chứng minh được điều
+ # 1. Đứng ở gốc project, stage bản mới nhất (không ghi file nào của project)
+ cd /path/to/your-repo
+ curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash
+-#    …hoặc ghim một bản:  | bash -s -- 4.1.1
++#    …hoặc ghim một bản:  | bash -s -- 4.1.2
+ 
+ # 2. Kiểm máy đã đủ thứ cần chưa
+-bash .astraler/releases/4.1.1/check-requirements.sh
++bash .astraler/releases/4.1.2/check-requirements.sh
+ #    Về sau, ngay trong project: bản đang cài, bản mới nhất, có gì thay đổi, nâng cấp thế nào
+ .astraler/astragentic.sh update
+ 
+ # 3. Chạy bộ cài thích nghi trong Claude Code
+-claude "Read .astraler/releases/4.1.1/ADAPT-HARNESS.md completely and execute it."
++claude "Read .astraler/releases/4.1.2/ADAPT-HARNESS.md completely and execute it."
+ 
+ # 4. Mở router
+ claude --dangerously-skip-permissions --agent kid --model claude-opus-5 --effort medium --advisor fable
+@@ -297,7 +297,7 @@ và merge hook đều là của bản release ấy.
+ ```bash
+ cd /path/to/your-repo
+ curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash                      # bản mới nhất, chỉ stage
+-curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash -s -- 4.1.1         # ghim một bản
++curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash -s -- 4.1.2         # ghim một bản
+ curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash -s -- latest --plan  # xem --apply sẽ ghi gì
+ curl -fsSL https://raw.githubusercontent.com/thientranhung/astragentic/main/get.sh | bash -s -- latest --apply # ghi payload vào
+ ```
+diff --git a/harness/.agents/memory/INDEX.md b/harness/.agents/memory/INDEX.md
+index 579de39..db996aa 100644
+--- a/harness/.agents/memory/INDEX.md
++++ b/harness/.agents/memory/INDEX.md
+@@ -17,7 +17,7 @@ from this table — read the entry.
+ | `AST-011` | Gate was per-PR only, not per-step | promoted | 49 | ledger-rules.py |
+ | `AST-012` | Two review rounds not stated as both-mandatory | promoted | 53 | ledger-rules.py |
+ | `AST-016` | Agents sharing one checkout moved HEAD under each other | promoted | 39 | dispatch-junior |
+-| `AST-024` | Role rule auto-loads into every session → role-bleed (Worker acted as KID) | promoted | 37 | builder.md,qa.md,shaper.md,kid.md |
++| `AST-024` | Role rule auto-loads into every session → role-bleed (Worker acted as KID) | promoted | 37 | builder.md,kid.md,qa.md,shaper.md |
+ | `AST-028` | Relative worktree path + unverified pane cwd → worktree born in the wrong place, hour-long mi… | promoted | 191 | hook-git-guard.py,selftest.sh |
+ | `AST-032` | A signal that cannot fail is not evidence | promoted | 776 | docs-staleness-audit.sh,herdr-watch-terminal.sh,herdr-watchdog.sh |
+ | `AST-036` | A git worktree carries TRACKED content only | promoted | 154 | register.tsx |
+@@ -31,8 +31,8 @@ from this table — read the entry.
+ | `AST-052` | The word-budget audit ran its loop zero times and reported all clean | promoted | 227 | docs-staleness-audit.sh |
+ | `AST-054` | `git add -A` committed two releases nobody ever applied | promoted | 146 | hook-git-guard.py |
+ | `AST-055` | A gate that reads the subject cannot see which pass wrote it | promoted | 326 | builder-claude.md,check-reachability.py,register.tsx |
+-| `AST-057` | A frontier that is only computed is invisible to the one person who cannot compute | promoted | 689 | check-reachability.py,hook-git-guard.py,pre-push-ticket-done.sh,reconcile-tracker,register.tsx,release-worktree-resources.sh,kid.md,ticket-done.sh |
+-| `AST-069` | An instruction with no moment attached measures zero | promoted | 272 | check-reachability.py,hook-contract-reload.py,hook-git-guard.py,hook-tracker-status.py,pre-push-ticket-done.sh,selftest.sh,kid.md |
++| `AST-057` | A frontier that is only computed is invisible to the one person who cannot compute | promoted | 689 | check-reachability.py,hook-git-guard.py,kid.md,pre-push-ticket-done.sh,reconcile-tracker,register.tsx,release-worktree-resources.sh,ticket-done.sh |
++| `AST-069` | An instruction with no moment attached measures zero | promoted | 272 | check-reachability.py,hook-contract-reload.py,hook-git-guard.py,hook-tracker-status.py,kid.md,pre-push-ticket-done.sh,selftest.sh |
+ | `AST-070` | A bounded exception nobody asked for is a contradiction carried on speculation | promoted | 275 | ledger-rules.py |
+ | `AST-072` | Self-monitoring shipped without proof it cannot harm what it monitors | promoted | 345 | herdr-watchdog.sh |
+ | `AST-074` | A tracker measured only against itself cannot detect its own drift | promoted | 484 | register.tsx |
+diff --git a/harness/.claude/skills/astragentic-dispatch/hooks/register.tsx b/harness/.claude/skills/astragentic-dispatch/hooks/register.tsx
+index 28971bc..66663cf 100644
+--- a/harness/.claude/skills/astragentic-dispatch/hooks/register.tsx
++++ b/harness/.claude/skills/astragentic-dispatch/hooks/register.tsx
+@@ -1513,7 +1513,7 @@ export const register: Register = on => {
+     const realIndex = (await run($, ['git', 'rev-parse', '--git-path', 'index'], 15_000, cwd)).out
+     // A private directory outside the working tree, one per call: a scratch index inside the
+     // worktree was a file a concurrent `git add -A` could stage (arm pass 7).
+-    const tmpd = (await run($, ['mktemp', '-d', '-t', 'astragentic-tdd-gate'], 10_000)).out
++    const tmpd = (await run($, ['mktemp', '-d', '-t', 'astragentic-tdd-gate.XXXXXX'], 10_000)).out
+     if (!tmpd.startsWith('/')) return refuse('the gate could not allocate a scratch directory', 'Retry the commit; if this persists, the temp directory is unwritable.')
+     const scratch = `${tmpd}/index`
+     const g = (argv: string[], dir: string) => run($, ['git', ...argv], 30_000, dir, { GIT_INDEX_FILE: scratch })
+-- 
+2.43.0
+

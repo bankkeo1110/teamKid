@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KID Office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --wall: #34405E;
+  --ink: #1E2230;
+  --ink-2: #4A5164;
+  --panel: #E6ECE8;
+  --paper: #F7FAF8;
+  --line: #C9D3CD;
+  --sticky: #FFD45C;
+  --work: #2A9D8F;
+  --block: #E5675A;
+  --idle: #9AA3AD;
+  --review: #B9A7E8;
+  --done: #9ED9B3;
+  --backlog: #E3E1DA;
+  --doing: #8FD6CB;
+  --page: #D5DED8;
+  --focus: #1F6FEB;
+  --pixel: "Pixelify Sans", ui-monospace, monospace;
+  --body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #E8EDF2; --ink-2: #A9B2BE; --panel: #232836; --paper: #2B3142; --line: #3A4256; --page: #181C26;
+    --backlog: #5A5A57; --doing: #2F7D73; --review: #6E5FA8; --done: #3E8A5E;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #E8EDF2; --ink-2: #A9B2BE; --panel: #232836; --paper: #2B3142; --line: #3A4256; --page: #181C26;
+  --backlog: #5A5A57; --doing: #2F7D73; --review: #6E5FA8; --done: #3E8A5E;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ink); font: 15px/1.5 var(--body); min-height: 100vh; }
+button, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- header */
+.top { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--wall); color: #EEF2F7; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--pixel); font-size: 22px; font-weight: 700; letter-spacing: .5px; }
+.brand canvas { width: 30px; height: 30px; image-rendering: pixelated; }
+.top select { background: #2A3450; border: 1px solid #56638A; border-radius: 6px; padding: 5px 10px; color: #EEF2F7; }
+.sprint { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 14px; }
+.sprint .bar { width: 140px; height: 10px; background: #253049; border-radius: 2px; overflow: hidden; border: 1px solid #56638A; }
+.sprint .bar i { display: block; height: 100%; background: var(--done); width: 0; transition: width .6s; }
+.sprint b { font-family: var(--pixel); font-weight: 500; }
+.pills { display: flex; gap: 6px; }
+.pill { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: #2A3450; border: 1px solid #56638A; display: flex; align-items: center; gap: 6px; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--idle); }
+.pill.ok::before { background: #6FE0B0; }
+.pill.bad::before { background: var(--block); }
+.demo-flag { background: var(--sticky); color: #3B2E00; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
+
+/* ---------- layout */
+main > * { min-width: 0; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; padding: 16px 20px 24px; max-width: 1500px; margin: 0 auto; }
+.office-wrap { position: relative; background: #263048; border-radius: 10px; overflow: hidden; border: 3px solid #1B2236; align-self: start; }
+#office { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; cursor: default; }
+.overlay { position: absolute; inset: 0; pointer-events: none; }
+.tag { position: absolute; transform: translate(-50%, 0); font-family: var(--pixel); font-size: 12px; line-height: 1; padding: 3px 6px 2px; border-radius: 3px; background: rgba(20, 24, 36, .82); color: #F1F4F8; white-space: nowrap; pointer-events: auto; cursor: pointer; border: 0; }
+.tag .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--idle); }
+.tag.working .dot { background: #6FE0B0; }
+.tag.blocked .dot { background: var(--block); }
+.tag.sel { background: var(--sticky); color: #2B2200; }
+.bubble { position: absolute; transform: translate(-50%, -100%); max-width: 230px; background: #FFFDF6; color: #1E2230; font-size: 12.5px; line-height: 1.35; padding: 6px 9px; border-radius: 6px; border: 2px solid #1E2230; box-shadow: 2px 2px 0 #1E2230; opacity: 0; transition: opacity .25s; }
+.bubble::after { content: ""; position: absolute; left: 50%; bottom: -8px; margin-left: -5px; border: 5px solid transparent; border-top-color: #1E2230; border-bottom: 0; }
+.bubble.show { opacity: 1; }
+.bubble.blocked { background: #FFE6E2; }
+.view-switch { display: inline-flex; border: 1px solid #56638A; border-radius: 6px; overflow: hidden; }
+.view-switch button { background: #2A3450; color: #C9D2E3; border: 0; padding: 5px 12px; font-family: var(--pixel); font-size: 15px; cursor: pointer; }
+.view-switch button[aria-pressed="true"] { background: var(--sticky); color: #2B2200; }
+.office-wrap.is3d #office, .office-wrap.is3d #overlay { display: none; }
+.office3d { background: #D9E2DD; }
+.office3d .overlay { z-index: 1; }
+.hud3d { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2; }
+.hud3d button { background: rgba(20, 24, 36, .82); color: #F1F4F8; border: 0; border-radius: 4px; padding: 5px 10px; font-size: 13px; cursor: pointer; }
+.hud3d button:hover { background: #1E2230; }
+.hint3d { position: absolute; right: 10px; bottom: 10px; z-index: 2; font-size: 12px; color: #2B3142; background: rgba(255,255,255,.75); padding: 3px 8px; border-radius: 4px; }
+.empty-office { z-index: 3; }
+.empty-office { position: absolute; inset: 0; display: none; place-items: center; text-align: center; color: #EEF2F7; background: rgba(26, 31, 48, .72); padding: 24px; }
+.empty-office.show { display: grid; }
+.empty-office p { margin: 6px 0; max-width: 46ch; }
+.empty-office code { background: #11151F; padding: 2px 6px; border-radius: 4px; }
+
+/* ---------- side panel */
+aside { background: var(--panel); border-radius: 10px; border: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; max-height: calc(100vh - 110px); position: sticky; top: 16px; align-self: start; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); }
+.tabs button { flex: 1; background: none; border: 0; padding: 11px 6px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--ink-2); border-bottom: 3px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--work); }
+.pane { display: none; overflow: auto; padding: 14px 16px; flex: 1; min-height: 260px; }
+.pane.on { display: block; }
+.feed { list-style: none; margin: 0; padding: 0; }
+.feed li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+.feed li:last-child { border-bottom: 0; }
+.feed .ico { width: 22px; height: 22px; image-rendering: pixelated; }
+.feed time { display: block; color: var(--ink-2); font-size: 12px; }
+.feed li.refusal, .feed li.blocked { color: var(--block); }
+.nothing { color: var(--ink-2); font-size: 14px; }
+
+.chat { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+.chat-log { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 8px; min-height: 160px; }
+.msg { max-width: 88%; padding: 7px 10px; border-radius: 8px; font-size: 14px; background: var(--paper); border: 1px solid var(--line); }
+.msg.me { align-self: flex-end; background: var(--sticky); color: #2B2200; border-color: #E2B53A; }
+.msg time { display: block; font-size: 11px; opacity: .7; }
+.chat form { display: flex; flex-direction: column; gap: 8px; }
+.chat textarea { width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: var(--paper); }
+.chat .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.chat small { color: var(--ink-2); font-size: 12px; }
+.btn { background: var(--work); color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; font-weight: 600; cursor: pointer; }
+.btn:disabled { opacity: .5; cursor: default; }
+.err { color: var(--block); font-size: 13px; min-height: 1em; }
+
+.person-card { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; }
+.person-card canvas { width: 64px; height: 64px; image-rendering: pixelated; background: #2C3754; border-radius: 6px; }
+.person-card h3 { margin: 0; font-family: var(--pixel); font-size: 20px; font-weight: 700; }
+.person-card p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; padding: 0; list-style: none; }
+.steps li { font-size: 12.5px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); color: var(--ink-2); }
+.steps li.did { background: var(--done); border-color: transparent; color: #12301F; }
+.term { background: #151924; color: #CFE3DA; font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto; }
+.detail h4 { margin: 14px 0 6px; font-size: 14px; }
+
+/* ---------- board */
+.board-wrap { grid-column: 1 / -1; }
+.board-head { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 10px; }
+.board-head h2 { margin: 0; font-size: 20px; }
+.board-head span { color: var(--ink-2); font-size: 14px; }
+.board { display: grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+.col { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 140px; }
+.col h3 { margin: 0 0 10px; font-size: 14px; display: flex; justify-content: space-between; }
+.col h3 b { font-family: var(--pixel); font-weight: 500; color: var(--ink-2); }
+.note { display: block; text-decoration: none; color: #23261F; padding: 9px 10px 10px; margin-bottom: 10px; border-radius: 2px; box-shadow: 0 1px 0 rgba(0,0,0,.08), 2px 3px 0 rgba(0,0,0,.10); position: relative; transition: transform .15s; }
+.note:hover { transform: rotate(-1deg) translateY(-1px); }
+.note .id { font-family: var(--pixel); font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+.note .t { font-size: 13.5px; line-height: 1.35; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.note .who { width: 20px; height: 20px; image-rendering: pixelated; }
+.note .flag { display: inline-block; margin-top: 6px; font-size: 11.5px; font-weight: 600; background: #1E2230; color: #FFD45C; padding: 1px 6px; border-radius: 3px; }
+.col.backlog .note { background: #EFEDE6; }
+.col.ready .note { background: var(--sticky); }
+.col.doing .note { background: #A8E3DA; }
+.col.review .note { background: #D3C8F2; }
+.col.done .note { background: #BDE8CB; }
+.col:nth-child(odd) .note:nth-child(3n+2) { transform: rotate(.6deg); }
+.col:nth-child(even) .note:nth-child(3n) { transform: rotate(-.7deg); }
+
+@media (max-width: 1080px) {
+  main { grid-template-columns: 1fr; }
+  aside { position: static; max-height: none; }
+  .pane { max-height: 420px; }
+  .board { grid-template-columns: repeat(5, minmax(200px, 1fr)); }
+}
+@media (max-width: 700px) { .hint3d { display: none; } .hud3d button { font-size: 12px; padding: 4px 8px; } }
+@media (max-width: 560px) {
+  main { padding: 12px 16px 20px; gap: 12px; }
+  .top { padding: 10px 16px; gap: 10px; }
+  .sprint { margin-left: 0; width: 100%; }
+  .sprint .bar { flex: 1; }
+  .tag { font-size: 10px; padding: 2px 4px; }
+  .bubble { font-size: 11px; max-width: 150px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .note, .sprint .bar i, .bubble { transition: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><canvas id="logo" width="16" height="16" aria-hidden="true"></canvas>Team KID</div>
+  <label class="sr" style="display:flex;align-items:center;gap:8px;font-size:14px">Dự án
+    <select id="project" aria-label="Chọn dự án"></select>
+  </label>
+  <div class="view-switch" role="group" aria-label="Kiểu văn phòng"><button type="button" data-view="2d" aria-pressed="true">2D</button><button type="button" data-view="3d" aria-pressed="false">3D</button></div>
+  <span id="demoFlag" class="demo-flag" hidden>Bản mô phỏng</span>
+  <div class="sprint" aria-live="polite">
+    <span id="sprintName">Sprint</span>
+    <div class="bar" role="progressbar" aria-label="Tiến độ sprint" aria-valuemin="0" aria-valuemax="100"><i id="sprintBar"></i></div>
+    <b id="sprintNum">0/0</b>
+  </div>
+  <div class="pills"><span id="pHerdr" class="pill">herdr</span><span id="pGh" class="pill">GitHub</span></div>
+</header>
+
+<main>
+  <section class="office-wrap" aria-label="Văn phòng của team">
+    <canvas id="office" width="384" height="240"></canvas>
+    <div class="overlay" id="overlay"></div>
+    <div class="empty-office" id="emptyOffice"><div id="emptyMsg"></div></div>
+  </section>
+
+  <aside>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="feed">Hoạt động</button>
+      <button role="tab" aria-selected="false" data-tab="chat">Nói với KID</button>
+      <button role="tab" aria-selected="false" data-tab="detail">Chi tiết</button>
+    </div>
+    <div class="pane on" id="tab-feed" role="tabpanel"><ul class="feed" id="feed"></ul><p class="nothing" id="feedEmpty">Chưa có hoạt động nào. Khi KID giao việc, mọi thứ sẽ hiện ở đây.</p></div>
+    <div class="pane" id="tab-chat" role="tabpanel">
+      <div class="chat">
+        <div class="chat-log" id="chatLog"></div>
+        <form id="chatForm">
+          <textarea id="chatText" placeholder="Ví dụ: Làm trang đặt sân cầu lông, chọn ngày và giờ, đăng nhập Google." aria-label="Tin nhắn cho KID"></textarea>
+          <div class="err" id="chatErr" role="alert"></div>
+          <div class="row"><small>Tin nhắn được gõ thẳng vào ô của KID trong herdr.</small><button class="btn" id="chatSend">Gửi cho KID</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="pane" id="tab-detail" role="tabpanel"><div id="detail"><p class="nothing">Bấm vào một người trong văn phòng để xem họ đang làm gì.</p></div></div>
+  </aside>
+
+  <section class="board-wrap" aria-label="Bảng Scrum">
+    <div class="board-head"><h2>Bảng Scrum</h2><span id="boardSub"></span></div>
+    <div class="board" id="board"></div>
+  </section>
+</main>
+
+<script>
+'use strict'
+// ======================================================================== data
+const qs = new URLSearchParams(location.search)
+// STATIC: served from the website (Vercel) — no team behind it, a simulated team runs in the browser
+const STATIC = qs.has('static') || !/^(localhost|127\.0\.0\.1|\[::1\]|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname)
+let demo = null
+let TOKEN = qs.get('t')
+try { if (TOKEN) localStorage.setItem('kidOfficeToken', TOKEN); else TOKEN = localStorage.getItem('kidOfficeToken') } catch {}
+if (qs.get('t')) { qs.delete('t'); history.replaceState(null, '', location.pathname + (qs.toString() ? '?' + qs : '')) }
+let PROJECT = qs.get('p') || (() => { try { return localStorage.getItem('kidOfficeProject') } catch { return null } })()
+
+const ROLE = {
+  kid: { name: 'Scrum Master', short: 'KID' },
+  shaper: { name: 'Product Owner', short: 'PO' },
+  builder: { name: 'Developer', short: 'Dev' },
+  qa: { name: 'Tester', short: 'QA' },
+}
+const COLS = [
+  ['backlog', 'Backlog'], ['ready', 'Sẵn sàng'], ['doing', 'Đang làm'], ['review', 'Review & QA'], ['done', 'Xong'],
+]
+const STEPS = {
+  builder: [['implement', 'Viết code'], ['tdd', 'Test trước'], ['mattpocock-skills:code-review', 'Review chuẩn'], ['code-review', 'Tự review'], ['simplify', 'Dọn code']],
+  shaper: [['grill-with-docs', 'Hỏi yêu cầu'], ['to-spec', 'Viết spec'], ['to-tickets', 'Cắt ticket']],
+}
+let S = { agents: [], board: [], commits: [] }
+let EVENTS = []
+let selected = null
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const api = p => `${p}${p.includes('?') ? '&' : '?'}t=${encodeURIComponent(TOKEN || '')}${PROJECT ? '&p=' + encodeURIComponent(PROJECT) : ''}`
+
+// ======================================================================== pixel people
+const LOOKS = {
+  kid: { skin: '#F1C29A', hair: '#2B2420', shirt: '#2A9D8F', shirt2: '#1F7A6F', hat: '#E5675A', acc: 'cap' },
+  shaper: { skin: '#E8B48C', hair: '#6B3F26', shirt: '#7B5EA7', shirt2: '#5D4585', acc: 'glasses', long: true },
+  qa: { skin: '#F3CBA5', hair: '#B5523B', shirt: '#8A9099', shirt2: '#F2C14E', acc: 'vest' },
+}
+const DEV_LOOKS = [
+  { skin: '#F0C7A0', hair: '#1F1B18', shirt: '#3D7DD8', shirt2: '#2C5FA8' },
+  { skin: '#C99272', hair: '#3A2A1E', shirt: '#E39B3B', shirt2: '#B97A27', long: true },
+  { skin: '#F4D1B0', hair: '#C9A04A', shirt: '#5DAA62', shirt2: '#43844A' },
+  { skin: '#A8735A', hair: '#141210', shirt: '#D66BA0', shirt2: '#A84E7C', long: true },
+  { skin: '#EBC3A2', hair: '#7A4B2C', shirt: '#7E8794', shirt2: '#5E6672' },
+  { skin: '#D9A684', hair: '#2E2E38', shirt: '#4FB3C9', shirt2: '#3A8C9E' },
+]
+function lookFor(agent, slotIndex) {
+  if (agent.role === 'builder') return { ...DEV_LOOKS[slotIndex % DEV_LOOKS.length], acc: 'phones' }
+  return LOOKS[agent.role] || DEV_LOOKS[0]
+}
+
+// x,y = top-left of a 12x18 sprite. pose: 'sit' | 'walk' | 'stand'
+function drawPerson(c, x, y, L, o = {}) {
+  const f = o.frame || 0
+  const R = (px, py, w, h, col) => { c.fillStyle = col; c.fillRect(x + px, y + py, w, h) }
+  // legs (hidden behind the desk when sitting)
+  if (o.pose !== 'sit') {
+    const a = o.pose === 'walk' ? (f % 2 ? 1 : -1) : 0
+    R(3, 15, 2, 2 + (a > 0 ? 1 : 0), '#2C3140'); R(7, 15, 2, 2 + (a < 0 ? 1 : 0), '#2C3140')
+    R(3, 17 + (a > 0 ? 1 : 0), 2, 1, '#121520'); R(7, 17 + (a < 0 ? 1 : 0), 2, 1, '#121520')
+  }
+  // body
+  R(1, 10, 10, 6, L.shirt)
+  if (L.acc === 'vest') { R(1, 10, 3, 6, L.shirt2); R(8, 10, 3, 6, L.shirt2); R(1, 13, 10, 1, '#E8E2C8') }
+  else { R(1, 15, 10, 1, L.shirt2); R(5, 10, 2, 1, L.shirt2) }
+  if (L.acc === 'cap') { R(4, 11, 1, 3, '#EAF6F3'); R(7, 11, 1, 3, '#EAF6F3') }
+  // arms + hands
+  if (o.pose === 'sit') {
+    const up = o.typing ? (f % 2) : 0
+    R(0, 11, 1, 4, L.shirt); R(11, 11, 1, 4, L.shirt)
+    R(1, 14 - up, 2, 1, L.skin); R(9, 14 - (o.typing ? 1 - up : 0), 2, 1, L.skin)
+  } else {
+    const sw = o.pose === 'walk' ? (f % 2 ? 1 : -1) : 0
+    R(0, 11 + Math.max(0, sw), 1, 4, L.shirt); R(11, 11 + Math.max(0, -sw), 1, 4, L.shirt)
+    R(0, 15 + Math.max(0, sw), 1, 1, L.skin); R(11, 15 + Math.max(0, -sw), 1, 1, L.skin)
+  }
+  // head
+  R(2, 3, 8, 7, L.skin); R(5, 9, 2, 1, L.skin)
+  if (o.glow) { c.fillStyle = o.glow; c.globalAlpha = .18; c.fillRect(x + 2, y + 3, 8, 7); c.globalAlpha = 1 }
+  // hair
+  R(2, 1, 8, 3, L.hair); R(1, 2, 1, L.long ? 7 : 4, L.hair); R(10, 2, 1, L.long ? 7 : 4, L.hair)
+  if (L.long) { R(2, 3, 1, 2, L.hair); R(9, 3, 1, 2, L.hair) }
+  // eyes
+  const blink = o.blink
+  R(4, 6, 1, blink ? 0 : 1, '#1B1B22'); R(7, 6, 1, blink ? 0 : 1, '#1B1B22')
+  if (blink) { R(4, 6, 1, 1, L.skin); R(7, 6, 1, 1, L.skin) }
+  R(5, 8, 2, 1, o.mouth || '#B7695A')
+  // accessories
+  if (L.acc === 'cap') { R(1, 0, 10, 3, L.hat); R(2, 3, 9, 1, '#B94C40'); R(5, 1, 2, 1, '#FFD45C') }
+  if (L.acc === 'glasses') { R(3, 5, 3, 2, '#2B2B33'); R(6, 5, 3, 2, '#2B2B33'); R(4, 6, 1, 1, '#CDE8F6'); R(7, 6, 1, 1, '#CDE8F6') }
+  if (L.acc === 'phones') { R(2, 0, 8, 1, '#22252F'); R(1, 1, 1, 1, '#22252F'); R(10, 1, 1, 1, '#22252F'); R(0, 4, 2, 3, '#22252F'); R(10, 4, 2, 3, '#22252F') }
+}
+
+// ======================================================================== the room
+const office = document.getElementById('office')
+const cx = office.getContext('2d')
+const W = 384, H = 240
+const DOOR = { x: 22, y: 60 }
+const SEATS = {
+  kid: { x: 192, y: 152, kind: 'kid' },
+  shaper: { x: 54, y: 104, kind: 'shaper' },
+  qa: { x: 54, y: 190, kind: 'qa' },
+  dev: [{ x: 272, y: 104 }, { x: 334, y: 104 }, { x: 272, y: 182 }, { x: 334, y: 182 }, { x: 128, y: 212 }, { x: 118, y: 120 }],
+}
+let staticLayer = null
+function buildStatic() {
+  const b = document.createElement('canvas'); b.width = W; b.height = H
+  const c = b.getContext('2d')
+  const R = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h) }
+  // floor planks
+  R(0, 64, W, H - 64, '#B9835A')
+  for (let y = 64; y < H; y += 8) {
+    R(0, y, W, 1, '#A87449')
+    const off = ((y / 8) % 2) * 24
+    for (let x = off; x < W; x += 48) R(x, y, 1, 8, '#A87449')
+  }
+  for (let i = 0; i < 160; i++) { const x = (i * 97) % W, y = 66 + ((i * 53) % (H - 70)); R(x, y, 2, 1, '#C4906A') }
+  // wall
+  R(0, 0, W, 64, '#34405E'); R(0, 0, W, 4, '#2A3450')
+  for (let x = 0; x < W; x += 32) R(x, 4, 1, 56, '#3A4767')
+  R(0, 58, W, 6, '#263048'); R(0, 58, W, 1, '#4A587E')
+  // rug for the stand-up area
+  R(140, 132, 104, 72, '#4E6F68'); R(143, 135, 98, 66, '#5E8279')
+  for (let x = 146; x < 238; x += 8) R(x, 137, 4, 1, '#6F958B')
+  for (let x = 146; x < 238; x += 8) R(x, 197, 4, 1, '#6F958B')
+  // door
+  R(8, 14, 30, 50, '#5A3D2A'); R(11, 17, 24, 47, '#8C6243'); R(13, 20, 20, 18, '#9C7050'); R(13, 41, 20, 20, '#9C7050'); R(30, 40, 2, 2, '#E8C96A')
+  R(6, 64, 34, 3, '#3C2A1E')
+  // plants
+  const plant = (x, y) => { R(x + 2, y + 10, 8, 8, '#B5653F'); R(x + 3, y + 10, 6, 1, '#8E4A2D'); R(x, y + 2, 12, 8, '#3E8A4F'); R(x + 3, y - 2, 6, 6, '#4FA35F'); R(x + 1, y + 4, 3, 2, '#62B871') }
+  plant(122, 62); plant(364, 214); plant(4, 220)
+  // coffee corner
+  R(346, 48, 30, 24, '#5D6474'); R(346, 48, 30, 3, '#717A8C'); R(350, 54, 10, 12, '#2A2E38'); R(364, 54, 8, 4, '#E5675A'); R(352, 62, 6, 4, '#F4F2EC')
+  R(342, 72, 38, 4, '#6E4630')
+  return b
+}
+
+function drawWindow(c, x, y, w, h) {
+  const hr = new Date().getHours() + new Date().getMinutes() / 60
+  const sky = hr >= 6 && hr < 17 ? ['#8EC9F2', '#BFE2F7'] : hr >= 17 && hr < 19 ? ['#F2A65E', '#F7D18A'] : ['#1B2440', '#2B3A63']
+  c.fillStyle = '#20283E'; c.fillRect(x - 2, y - 2, w + 4, h + 4)
+  c.fillStyle = sky[0]; c.fillRect(x, y, w, h)
+  c.fillStyle = sky[1]; c.fillRect(x, y + h - 10, w, 10)
+  if (sky[0] === '#1B2440') { c.fillStyle = '#F4F7FF'; for (let i = 0; i < 6; i++) c.fillRect(x + (i * 13 + 5) % w, y + (i * 7 + 3) % (h - 12), 1, 1); c.fillStyle = '#F7E9B5'; c.fillRect(x + w - 12, y + 5, 5, 5) }
+  else { c.fillStyle = '#FFFFFF'; c.fillRect(x + 8, y + 9, 12, 3); c.fillRect(x + 11, y + 7, 7, 2) }
+  // Đà Nẵng skyline + bridge
+  c.fillStyle = sky[0] === '#1B2440' ? '#121831' : '#56709A'
+  c.fillRect(x, y + h - 14, w, 14); c.fillRect(x + 6, y + h - 22, 7, 8); c.fillRect(x + 30, y + h - 26, 6, 12); c.fillRect(x + 44, y + h - 19, 9, 5)
+  c.fillStyle = '#20283E'; c.fillRect(x + w / 2 - 1, y, 2, h); c.fillRect(x, y + h / 2 - 1, w, 2)
+}
+
+function drawWhiteboard(c) {
+  const x = 140, y = 10, w = 120, h = 44
+  c.fillStyle = '#8D97A3'; c.fillRect(x - 3, y - 3, w + 6, h + 6)
+  c.fillStyle = '#F4F7F5'; c.fillRect(x, y, w, h)
+  c.fillStyle = '#6E7783'; c.fillRect(x - 3, y + h + 3, w + 6, 2)
+  const colColor = { backlog: '#D9D6CC', ready: '#FFD45C', doing: '#58C4B4', review: '#B39CEB', done: '#7DCB94' }
+  const cw = w / 5
+  COLS.forEach(([k], i) => {
+    c.fillStyle = '#C9D0D6'; if (i) c.fillRect(x + i * cw, y + 3, 1, h - 6)
+    c.fillStyle = '#4A5164'; c.fillRect(x + i * cw + 4, y + 4, cw - 8, 2)
+    const n = S.board.filter(t => t.col === k).length
+    for (let j = 0; j < Math.min(n, 8); j++) {
+      c.fillStyle = colColor[k]
+      c.fillRect(x + i * cw + 4 + (j % 2) * 10, y + 10 + Math.floor(j / 2) * 8, 8, 6)
+    }
+    if (n > 8) { c.fillStyle = '#4A5164'; c.fillRect(x + i * cw + 10, y + h - 5, 4, 1) }
+  })
+}
+
+function drawClock(c) {
+  const x = 272, y = 16
+  c.fillStyle = '#1E2230'; c.fillRect(x, y, 22, 22); c.fillStyle = '#F4F7F5'; c.fillRect(x + 2, y + 2, 18, 18)
+  const d = new Date(), cxl = x + 11, cyl = y + 11
+  const hand = (ang, len, col) => { c.fillStyle = col; for (let i = 0; i < len; i++) c.fillRect(Math.round(cxl + Math.sin(ang) * i), Math.round(cyl - Math.cos(ang) * i), 1, 1) }
+  hand((d.getHours() % 12 + d.getMinutes() / 60) / 12 * Math.PI * 2, 5, '#1E2230')
+  hand(d.getMinutes() / 60 * Math.PI * 2, 8, '#E5675A')
+}
+
+function drawDesk(c, seat, kind, state, t) {
+  const { x, y } = seat
+  const R = (px, py, w, h, col) => { c.fillStyle = col; c.fillRect(px, py, w, h) }
+  const wide = kind === 'kid' ? 30 : 20
+  // desk top + front
+  R(x - wide, y, wide * 2, 5, '#8A5A3B'); R(x - wide, y + 5, wide * 2, 9, '#6E4630'); R(x - wide, y, wide * 2, 1, '#A06C49')
+  R(x - wide + 2, y + 14, 3, 6, '#55361F'); R(x + wide - 5, y + 14, 3, 6, '#55361F')
+  // laptop lid (back faces us)
+  const lit = state === 'working' ? '#7FE3D2' : state === 'blocked' ? '#FF8C7F' : null
+  if (lit && (state !== 'blocked' || Math.floor(t / 400) % 2)) { c.fillStyle = lit; c.globalAlpha = .55; c.fillRect(x - 9, y - 10, 18, 2); c.globalAlpha = 1 }
+  R(x - 8, y - 8, 16, 9, '#B9C0CB'); R(x - 8, y - 8, 16, 1, '#D7DCE3'); R(x - 1, y - 5, 2, 2, lit || '#8D95A2')
+  if (kind === 'kid') {
+    // side monitor facing us, showing a tiny board
+    R(x + 14, y - 22, 22, 15, '#20242F'); R(x + 16, y - 20, 18, 11, state ? '#16343A' : '#2A2F3B'); R(x + 24, y - 7, 2, 7, '#20242F')
+    if (state) { const cs = ['#FFD45C', '#58C4B4', '#B39CEB', '#7DCB94']; cs.forEach((col, i) => { R(x + 17 + i * 4, y - 18, 3, 2 + ((t / 700 + i) % 3 | 0) * 2, col) }) }
+    R(x - 26, y - 3, 6, 4, '#F4F2EC'); R(x - 25, y - 4, 4, 1, '#C47A4E')
+  }
+  if (kind === 'shaper') { R(x - 18, y - 2, 9, 3, '#F4F7F5'); R(x - 17, y - 3, 9, 1, '#E2E6E3'); R(x + 11, y - 3, 5, 4, '#FFD45C'); R(x + 13, y - 4, 5, 4, '#9ED9B3') }
+  if (kind === 'qa') { R(x + 11, y - 9, 6, 10, '#20242F'); R(x + 12, y - 8, 4, 7, state ? '#8FD6CB' : '#3A4050'); R(x - 18, y - 3, 7, 3, '#E5675A') }
+  if (kind === 'dev') { R(x + 11, y - 3, 4, 4, '#F4F2EC'); R(x + 12, y - 4, 2, 1, '#5A3D2A') }
+}
+
+function drawChair(c, seat) {
+  c.fillStyle = '#3B3F4A'; c.fillRect(seat.x - 8, seat.y - 19, 16, 13)
+  c.fillStyle = '#4A4F5C'; c.fillRect(seat.x - 7, seat.y - 18, 14, 2)
+}
+
+// ======================================================================== people on the floor
+const people = new Map() // agent id -> { agent, seat, slot, pos, path, state, look, leaving }
+const planes = []
+let devSlots = []
+
+function seatFor(agent) {
+  if (agent.role === 'kid') return { seat: SEATS.kid, kind: 'kid', slot: 0 }
+  const taken = r => [...people.values()].some(p => p.kind === r && !p.leaving && p.agent.id !== agent.id)
+  if (agent.role === 'shaper' && !taken('shaper')) return { seat: SEATS.shaper, kind: 'shaper', slot: 0 }
+  if (agent.role === 'qa' && !taken('qa')) return { seat: SEATS.qa, kind: 'qa', slot: 0 }
+  let i = devSlots.indexOf(agent.id)
+  if (i < 0) { i = devSlots.findIndex(s => !s); if (i < 0) i = devSlots.length; devSlots[i] = agent.id }
+  return { seat: SEATS.dev[i % SEATS.dev.length], kind: 'dev', slot: i }
+}
+function pathTo(seat) {
+  const hall = 76
+  return [{ x: DOOR.x, y: hall }, { x: seat.x, y: hall }, { x: seat.x, y: seat.y - 20 }]
+}
+function syncPeople() {
+  const ids = new Set(S.agents.map(a => a.id))
+  for (const a of S.agents) {
+    let p = people.get(a.id)
+    if (!p) {
+      const s = seatFor(a)
+      p = { agent: a, ...s, look: lookFor(a, s.slot), pos: { ...DOOR }, path: reduceMotion || firstSync ? [] : pathTo(s.seat), seated: reduceMotion || firstSync, leaving: false, lastThought: null, thoughtAt: 0, blinkAt: Math.random() * 4000 }
+      if (p.seated) p.pos = { x: s.seat.x, y: s.seat.y - 20 }
+      people.set(a.id, p)
+    }
+    p.agent = a
+    if (a.thought && a.thought !== p.lastThought) { p.lastThought = a.thought; p.thoughtAt = performance.now() }
+  }
+  for (const [id, p] of people) {
+    if (!ids.has(id) && !p.leaving) {
+      p.leaving = true; p.seated = false
+      p.path = reduceMotion ? [] : [{ x: p.seat.x, y: 76 }, { x: DOOR.x, y: 76 }, { ...DOOR }]
+      const di = devSlots.indexOf(id); if (di >= 0) devSlots[di] = null
+      if (reduceMotion) people.delete(id)
+    }
+  }
+  firstSync = false
+}
+let firstSync = true
+
+function stateOf(a) {
+  if (!a) return null
+  if (a.status === 'blocked') return 'blocked'
+  if (a.status === 'working' || a.waitingOn) return 'working'
+  return 'idle'
+}
+
+function seatPoint(id) {
+  if (id === 'kid') { const k = [...people.values()].find(p => p.kind === 'kid'); return k ? { x: k.seat.x, y: k.seat.y - 8 } : { x: SEATS.kid.x, y: SEATS.kid.y - 8 } }
+  if (id === 'owner') return { x: 192, y: 244 }
+  const p = people.get(id) || [...people.values()].find(q => q.agent.name === id)
+  return p ? { x: p.seat.x, y: p.seat.y - 8 } : null
+}
+function launchPlane(from, to, color) {
+  if (reduceMotion) return
+  const a = seatPoint(from), b = seatPoint(to)
+  if (!a || !b) return
+  planes.push({ a, b, t0: performance.now(), dur: 1500, color })
+}
+
+// ======================================================================== render loop
+let last = performance.now()
+function frame(now) {
+  if (VIEW === '3d') { last = now; requestAnimationFrame(frame); return }
+  const dt = Math.min(64, now - last); last = now
+  if (!staticLayer) staticLayer = buildStatic()
+  cx.imageSmoothingEnabled = false
+  cx.drawImage(staticLayer, 0, 0)
+  drawWindow(cx, 52, 12, 64, 40); drawWindow(cx, 304, 12, 34, 40)
+  drawWhiteboard(cx); drawClock(cx)
+
+  // move walkers
+  for (const [id, p] of people) {
+    if (p.path.length) {
+      const tgt = p.path[0], dx = tgt.x - p.pos.x, dy = tgt.y - p.pos.y, d = Math.hypot(dx, dy), step = dt * 0.06
+      if (d <= step) { p.pos = { ...tgt }; p.path.shift() } else { p.pos.x += dx / d * step; p.pos.y += dy / d * step }
+      p.walkFrame = Math.floor(now / 140)
+    } else if (p.leaving) { people.delete(id); continue }
+    else p.seated = true
+  }
+
+  // seats (occupied or empty), drawn back to front
+  const occupied = new Map([...people.values()].filter(p => p.seated && !p.leaving).map(p => [p.seat, p]))
+  const allSeats = [{ seat: SEATS.shaper, kind: 'shaper' }, { seat: SEATS.qa, kind: 'qa' }, { seat: SEATS.kid, kind: 'kid' }, ...SEATS.dev.slice(0, Math.max(4, devSlots.length)).map(s => ({ seat: s, kind: 'dev' }))]
+  const drawables = []
+  for (const s of allSeats) drawables.push({ y: s.seat.y, draw: () => {
+    const p = occupied.get(s.seat)
+    const st = p ? stateOf(p.agent) : null
+    drawChair(cx, s.seat)
+    if (p) {
+      const blink = ((now + p.blinkAt) % 4200) < 130
+      const glow = st === 'working' ? '#7FE3D2' : st === 'blocked' ? '#FF8C7F' : null
+      const bob = st === 'idle' ? (Math.floor(now / 900) % 2) : 0
+      drawPerson(cx, s.seat.x - 6, s.seat.y - 20 + bob, p.look, { pose: 'sit', typing: st === 'working', frame: Math.floor(now / 160), blink, glow })
+    }
+    drawDesk(cx, s.seat, s.kind, st, now)
+    if (p && st === 'blocked') { const on = Math.floor(now / 350) % 2; cx.fillStyle = on ? '#E5675A' : '#FFB3A8'; cx.fillRect(s.seat.x - 2, s.seat.y - 34, 4, 7); cx.fillRect(s.seat.x - 2, s.seat.y - 25, 4, 3) }
+    if (p && st === 'idle') { const k = (now / 1000) % 3; if (k < 2) { cx.fillStyle = '#E8EDF7'; const zx = s.seat.x + 6 + k * 3, zy = s.seat.y - 26 - k * 4; cx.fillRect(zx, zy, 4, 1); cx.fillRect(zx + 2, zy + 1, 1, 1); cx.fillRect(zx + 1, zy + 2, 1, 1); cx.fillRect(zx, zy + 3, 4, 1) } }
+    if (selected && p && p.agent.id === selected) { cx.strokeStyle = '#FFD45C'; cx.lineWidth = 1; cx.strokeRect(s.seat.x - 22.5, s.seat.y - 24.5, 45, 46) }
+  } })
+  for (const p of people.values()) if (!p.seated || p.leaving) drawables.push({ y: p.pos.y + 20, draw: () => drawPerson(cx, Math.round(p.pos.x - 6), Math.round(p.pos.y), p.look, { pose: p.path.length ? 'walk' : 'stand', frame: p.walkFrame || 0 }) })
+  drawables.sort((a, b) => a.y - b.y).forEach(d => d.draw())
+
+  // paper planes
+  for (let i = planes.length - 1; i >= 0; i--) {
+    const pl = planes[i], k = (now - pl.t0) / pl.dur
+    if (k >= 1) { planes.splice(i, 1); continue }
+    const mx = (pl.a.x + pl.b.x) / 2, my = Math.min(pl.a.y, pl.b.y) - 40
+    const x = (1 - k) ** 2 * pl.a.x + 2 * (1 - k) * k * mx + k * k * pl.b.x
+    const y = (1 - k) ** 2 * pl.a.y + 2 * (1 - k) * k * my + k * k * pl.b.y
+    const dir = pl.b.x >= pl.a.x ? 1 : -1
+    cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(Math.round(x) - 3, Math.round(y) + 10, 6, 1)
+    cx.fillStyle = pl.color || '#FFFFFF'
+    cx.fillRect(Math.round(x) - 3 * dir, Math.round(y), 1, 1); cx.fillRect(Math.round(x) - 2 * dir, Math.round(y), 2, 2)
+    cx.fillRect(Math.round(x) - 1 * dir, Math.round(y) + 1, 4, 1); cx.fillRect(Math.round(x), Math.round(y) - 1, 2, 3)
+    cx.fillStyle = '#C9D3E0'; cx.fillRect(Math.round(x) - 1 * dir, Math.round(y) + 2, 3, 1)
+  }
+
+  if (now - (frame.lastOverlay || 0) > 200) { frame.lastOverlay = now; drawOverlay(now) }
+  requestAnimationFrame(frame)
+}
+
+// ======================================================================== overlay (name tags + bubbles)
+const overlay = document.getElementById('overlay')
+const tagEls = new Map()
+function drawOverlay(now) {
+  const k = office.clientWidth / W
+  const keep = new Set()
+  for (const p of people.values()) {
+    if (!p.seated || p.leaving) continue
+    const id = p.agent.id; keep.add(id)
+    let el = tagEls.get(id)
+    if (!el) {
+      el = { tag: document.createElement('button'), bubble: document.createElement('div') }
+      el.tag.className = 'tag'; el.bubble.className = 'bubble'
+      el.tag.addEventListener('click', () => select(id))
+      overlay.append(el.bubble, el.tag); tagEls.set(id, el)
+    }
+    const a = p.agent, st = stateOf(a)
+    const label = a.role === 'kid' ? 'KID' : `${ROLE[a.role].short} ${a.ticket || ''}`.trim()
+    el.tag.innerHTML = `<span class="dot"></span>${esc(label)}`
+    el.tag.className = `tag ${st}${selected === id ? ' sel' : ''}`
+    el.tag.setAttribute('aria-label', `${ROLE[a.role].name} ${a.ticket || ''}, ${st === 'working' ? 'đang làm' : st === 'blocked' ? 'đang kẹt' : 'đang chờ'}`)
+    el.tag.style.left = `${p.seat.x * k}px`; el.tag.style.top = `${(p.seat.y + 15) * k}px`
+    const fresh = now - p.thoughtAt < 9000
+    const show = (fresh || selected === id || st === 'blocked') && a.thought
+    el.bubble.textContent = a.thought || ''
+    el.bubble.className = `bubble${show ? ' show' : ''}${st === 'blocked' ? ' blocked' : ''}`
+    el.bubble.style.left = `${p.seat.x * k}px`; el.bubble.style.top = `${(p.seat.y - 26) * k}px`
+  }
+  for (const [id, el] of tagEls) if (!keep.has(id)) { el.tag.remove(); el.bubble.remove(); tagEls.delete(id) }
+}
+office.addEventListener('click', ev => {
+  const r = office.getBoundingClientRect(), k = W / r.width
+  const x = (ev.clientX - r.left) * k, y = (ev.clientY - r.top) * k
+  const hit = [...people.values()].find(p => p.seated && Math.abs(p.seat.x - x) < 22 && y > p.seat.y - 26 && y < p.seat.y + 16)
+  if (hit) select(hit.agent.id)
+})
+office.addEventListener('mousemove', ev => {
+  const r = office.getBoundingClientRect(), k = W / r.width
+  const x = (ev.clientX - r.left) * k, y = (ev.clientY - r.top) * k
+  office.style.cursor = [...people.values()].some(p => p.seated && Math.abs(p.seat.x - x) < 22 && y > p.seat.y - 26 && y < p.seat.y + 16) ? 'pointer' : 'default'
+})
+
+// ======================================================================== panels
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+const ago = at => { const s = Math.max(0, (Date.now() - at) / 1000); if (s < 20) return 'vừa xong'; if (s < 3600) return `${Math.floor(s / 60) || 1} phút trước`; if (s < 86400) return `${Math.floor(s / 3600)} giờ trước`; return `${Math.floor(s / 86400)} ngày trước` }
+
+function avatar(look, size = 22, pose = 'sit') {
+  const c = document.createElement('canvas'); c.width = 16; c.height = 16
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false
+  drawPerson(g, 2, 2, look, { pose })
+  c.className = 'ico'; c.style.width = c.style.height = size + 'px'
+  return c
+}
+const ICO_LOOK = { join: null, leave: null }
+function lookForEvent(e) {
+  const p = e.agent && people.get(e.agent)
+  if (p) return p.look
+  if (e.role === 'kid' || e.from === 'kid') return LOOKS.kid
+  if (e.role && LOOKS[e.role]) return LOOKS[e.role]
+  if (e.role === 'builder') return { ...DEV_LOOKS[0], acc: 'phones' }
+  return null
+}
+function renderFeed() {
+  const ul = document.getElementById('feed')
+  const evs = EVENTS.filter(e => e.kind !== 'owner').slice(-80).reverse()
+  document.getElementById('feedEmpty').hidden = evs.length > 0
+  ul.replaceChildren(...evs.map(e => {
+    const li = document.createElement('li'); li.className = e.kind + (e.status === 'blocked' ? ' blocked' : '')
+    const lk = lookForEvent(e)
+    const ic = lk ? avatar(lk) : (() => { const d = document.createElement('canvas'); d.width = 8; d.height = 8; const g = d.getContext('2d'); g.fillStyle = e.kind === 'commit' ? '#4A5164' : e.kind === 'board' ? '#FFD45C' : '#9AA3AD'; g.fillRect(1, 1, 6, 6); d.className = 'ico'; d.style.width = d.style.height = '22px'; return d })()
+    const body = document.createElement('div')
+    body.innerHTML = `${esc(e.text)}<time datetime="${new Date(e.at).toISOString()}">${ago(e.at)}</time>`
+    li.append(ic, body); return li
+  }))
+}
+function renderChat() {
+  const log = document.getElementById('chatLog')
+  const msgs = EVENTS.filter(e => e.kind === 'owner' || (e.kind === 'say' && e.role === 'kid')).slice(-60)
+  if (!msgs.length) { log.innerHTML = '<p class="nothing">Gửi yêu cầu cho KID như khi nói với một công ty phần mềm: muốn làm gì, cho ai dùng, cái gì quan trọng nhất.</p>'; return }
+  log.innerHTML = msgs.map(e => `<div class="msg${e.kind === 'owner' ? ' me' : ''}">${esc(e.text.replace(/^(Bạn|KID): /, ''))}<time>${e.kind === 'owner' ? 'Bạn' : 'KID'}, ${ago(e.at)}</time></div>`).join('')
+  log.scrollTop = log.scrollHeight
+}
+function renderDetail() {
+  const box = document.getElementById('detail')
+  const p = selected && people.get(selected)
+  if (!p) { box.innerHTML = '<p class="nothing">Bấm vào một người trong văn phòng để xem họ đang làm gì.</p>'; return }
+  const a = p.agent, st = stateOf(a)
+  const stTxt = st === 'working' ? 'Đang làm việc' : st === 'blocked' ? 'Đang bị kẹt, cần xem lại' : 'Đang chờ'
+  const steps = (STEPS[a.role] || []).map(([k, v]) => `<li class="${(a.steps || []).some(s => s === k || s.endsWith(':' + k)) ? 'did' : ''}">${v}</li>`).join('')
+  const tk = S.board.find(t => t.ticket === a.ticket)
+  box.innerHTML = `<div class="person-card"><span id="bigAv"></span><div><h3>${esc(a.role === 'kid' ? 'KID' : a.ticket || a.name)}</h3><p>${ROLE[a.role].name}. ${stTxt}.</p></div></div>
+    ${tk ? `<h4>Ticket</h4><p style="margin:0;font-size:14px"><a href="${esc(tk.url)}" target="_blank" rel="noopener">${esc(tk.ticket)}</a> ${esc(tk.title)}</p>` : ''}
+    ${steps ? `<h4>Các bước</h4><ul class="steps">${steps}</ul>` : ''}
+    ${a.refusals ? `<p class="err">Bị cổng kiểm soát chặn ${a.refusals} lần${a.lastRefusal ? `, gần nhất: ${esc(a.lastRefusal.gate)}` : ''}.</p>` : ''}
+    <h4>Màn hình của ${a.role === 'kid' ? 'KID' : 'agent'}</h4><div class="term">${esc((a.tail || []).join('\n')) || 'Chưa đọc được màn hình.'}</div>`
+  const av = avatar(p.look, 64, 'stand'); av.className = ''; box.querySelector('#bigAv').replaceWith(av)
+}
+function select(id) {
+  selected = selected === id ? null : id
+  if (selected) showTab('detail')
+  renderDetail()
+}
+
+function renderBoard() {
+  const b = document.getElementById('board')
+  const builderFor = t => [...people.values()].find(p => p.agent.ticket === t && !p.leaving)
+  b.replaceChildren(...COLS.map(([k, name]) => {
+    const items = S.board.filter(t => t.col === k).sort((x, y) => (k === 'done' ? Date.parse(y.closedAt || 0) - Date.parse(x.closedAt || 0) : (x.number || 0) - (y.number || 0)))
+    const col = document.createElement('div'); col.className = `col ${k}`
+    col.innerHTML = `<h3>${name}<b>${items.length}</b></h3>`
+    for (const t of items.slice(0, 30)) {
+      const a = document.createElement('a'); a.className = 'note'; a.href = t.url || '#'; a.target = '_blank'; a.rel = 'noopener'
+      a.innerHTML = `<div class="id"><span>${esc(t.ticket)}</span></div><div class="t">${esc(t.title)}</div>${t.owner ? '<span class="flag">Cần bạn quyết định</span>' : ''}`
+      const w = builderFor(t.ticket)
+      if (w) { const av = avatar(w.look, 20); av.className = 'who'; av.title = `${ROLE[w.agent.role].name} đang làm`; a.querySelector('.id').append(av) }
+      col.append(a)
+    }
+    if (!items.length) col.insertAdjacentHTML('beforeend', '<p class="nothing" style="font-size:13px">Trống</p>')
+    return col
+  }))
+  const counted = S.board.filter(t => t.col !== 'backlog')
+  const done = counted.filter(t => t.col === 'done').length
+  const ms = S.board.map(t => t.milestone).filter(Boolean)
+  const sprint = ms.length ? mode(ms) : 'Sprint hiện tại'
+  document.getElementById('sprintName').textContent = sprint
+  document.getElementById('sprintNum').textContent = `${done}/${counted.length}`
+  const pct = counted.length ? Math.round(done / counted.length * 100) : 0
+  document.getElementById('sprintBar').style.width = pct + '%'
+  document.querySelector('.sprint .bar').setAttribute('aria-valuenow', pct)
+  const owner = S.board.filter(t => t.owner && t.col !== 'done').length
+  document.getElementById('boardSub').textContent = S.board.length ? `${S.board.length} ticket trên GitHub${owner ? `, ${owner} đang chờ bạn quyết định` : ''}` : 'Chưa có ticket. Nhờ KID làm tính năng đầu tiên ở tab “Nói với KID”.'
+}
+const mode = arr => { const m = new Map(); arr.forEach(x => m.set(x, (m.get(x) || 0) + 1)); return [...m].sort((a, b) => b[1] - a[1])[0][0] }
+
+function renderStatus() {
+  const pill = (el, st, okTxt, badTxt) => { el.className = 'pill ' + (st === 'ok' ? 'ok' : st === 'unknown' ? '' : 'bad'); el.textContent = st === 'ok' ? okTxt : badTxt }
+  pill(document.getElementById('pHerdr'), S.herdr, 'herdr', 'herdr tắt')
+  pill(document.getElementById('pGh'), S.github, 'GitHub', 'GitHub lỗi')
+  document.getElementById('demoFlag').hidden = !S.demo
+  const empty = document.getElementById('emptyOffice'), msg = document.getElementById('emptyMsg')
+  let html = ''
+  if (S.empty) html = '<p><b>Chưa có dự án Team KID nào.</b></p><p>Mở Start KID, mở tab mới trong herdr và gõ <code>new-kid-project ten-app</code>.</p>'
+  else if (S.herdr === 'offline') html = '<p><b>Văn phòng đang đóng cửa.</b></p><p>Không kết nối được herdr. Nhấp đúp <b>Start KID</b> trên Desktop để team vào làm việc.</p>'
+  else if (S.herdr === 'no-workspace') html = `<p><b>Team của ${esc(S.project)} chưa vào văn phòng.</b></p><p>Mở Start KID và chọn ${esc(S.project)}, hoặc gõ <code>kid ${esc(S.project)}</code> trong herdr.</p>`
+  empty.classList.toggle('show', !!html); msg.innerHTML = html
+}
+
+// ======================================================================== tabs + chat
+function showTab(name) {
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)))
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'tab-' + name))
+}
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)))
+document.getElementById('chatForm').addEventListener('submit', async ev => {
+  ev.preventDefault()
+  const ta = document.getElementById('chatText'), err = document.getElementById('chatErr'), btn = document.getElementById('chatSend')
+  const text = ta.value.trim(); if (!text) { err.textContent = 'Viết yêu cầu trước khi gửi.'; return }
+  btn.disabled = true; err.textContent = ''
+  try {
+    const r = STATIC ? (demo ? demo.say(text) : { ok: false, error: 'Bản mô phỏng chưa sẵn sàng.' }) : await fetch(api('/api/say'), { method: 'POST', headers: { 'content-type': 'application/json', 'x-kid-token': TOKEN || '' }, body: JSON.stringify({ text }) }).then(r => r.json())
+    if (r.ok) { ta.value = ''; launchPlane('owner', 'kid', '#FFD45C'); view3d?.plane('owner', 'kid', true) } else err.textContent = r.error || 'Không gửi được.'
+  } catch { err.textContent = 'Mất kết nối với KID Office. Kiểm tra cửa sổ herdr còn mở không.' }
+  btn.disabled = false
+})
+document.getElementById('chatText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) document.getElementById('chatForm').requestSubmit() })
+
+// ======================================================================== 2D / 3D
+let VIEW = '2d', view3d = null
+const listeners = new Set()
+window.KID = {
+  state: () => S, stateOf, ROLE,
+  select: id => select(id), selected: () => selected,
+  on: fn => { listeners.add(fn); return () => listeners.delete(fn) },
+}
+async function setView(v) {
+  VIEW = v
+  try { localStorage.setItem('kidOfficeView', v) } catch {}
+  document.querySelectorAll('.view-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)))
+  const wrap = document.querySelector('.office-wrap')
+  if (v === '3d') {
+    if (view3d) return
+    wrap.classList.add('is3d')
+    try {
+      const m = await import('./office3d.js')
+      if (VIEW !== '3d') return
+      view3d = m.mount(wrap, window.KID)
+      if (!wrap.querySelector('.hint3d')) wrap.querySelector('.office3d').insertAdjacentHTML('beforeend', '<span class="hint3d">Kéo để xoay, cuộn để phóng to, bấm vào người để xem chi tiết</span>')
+    } catch (e) {
+      console.error(e); wrap.classList.remove('is3d'); VIEW = '2d'
+      document.querySelectorAll('.view-switch button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === '2d')))
+      document.getElementById('emptyOffice').classList.add('show')
+      document.getElementById('emptyMsg').innerHTML = '<p><b>Máy này không mở được bản 3D.</b></p><p>Trình duyệt chưa bật WebGL (tăng tốc phần cứng). Đang dùng bản 2D.</p>'
+      setTimeout(renderStatus, 5000)
+    }
+  } else {
+    view3d?.unmount(); view3d = null; wrap.classList.remove('is3d')
+  }
+}
+document.querySelectorAll('.view-switch button').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)))
+
+// ======================================================================== live data
+let since = 0, es = null
+function connect() {
+  if (STATIC) { import('./demo-client.js').then(m => { demo = m.startDemo(handleData) }); return }
+  if (es) es.close()
+  es = new EventSource(api(`/api/stream?since=${since}`))
+  es.onmessage = m => handleData(JSON.parse(m.data))
+  es.onerror = () => { document.getElementById('pHerdr').className = 'pill bad'; document.getElementById('pHerdr').textContent = 'mất kết nối' }
+}
+function handleData(d) {
+    if (d.state) S = d.state
+    const fresh = d.events || []
+    for (const e of fresh) {
+      if (EVENTS.some(x => x.id === e.id)) continue
+      EVENTS.push(e); since = Math.max(since, e.at)
+      if (e.kind === 'message') launchPlane(e.from, e.to, e.from === 'kid' ? '#FFFFFF' : '#FFD45C')
+    }
+    if (EVENTS.length > 400) EVENTS = EVENTS.slice(-300)
+    syncPeople(); renderStatus(); renderBoard(); renderFeed(); renderChat()
+    listeners.forEach(fn => { try { fn(S, fresh) } catch (err) { console.error(err) } })
+    if (selected) renderDetail()
+}
+async function boot() {
+  if (STATIC) {
+    document.getElementById('project').innerHTML = '<option>demo-shop</option>'
+    connect()
+    let saved = null; try { saved = localStorage.getItem('kidOfficeView') } catch {}
+    if (qs.get('view') === '3d' || saved === '3d') setView('3d')
+    requestAnimationFrame(frame); return
+  }
+  if (!TOKEN) { document.getElementById('emptyOffice').classList.add('show'); document.getElementById('emptyMsg').innerHTML = '<p><b>Thiếu mã truy cập.</b></p><p>Mở KID Office bằng shortcut trên Desktop, hoặc gõ <code>kid-office</code> trong herdr.</p>'; requestAnimationFrame(frame); return }
+  const pr = await fetch(api('/api/projects')).then(r => r.json()).catch(() => null)
+  const sel = document.getElementById('project')
+  const list = pr?.projects || []
+  if (!PROJECT || !list.includes(PROJECT)) PROJECT = list.includes('team-kid') ? 'team-kid' : list[0] || null
+  sel.innerHTML = list.map(p => `<option ${p === PROJECT ? 'selected' : ''}>${esc(p)}</option>`).join('') || '<option>chưa có dự án</option>'
+  sel.onchange = () => { PROJECT = sel.value; try { localStorage.setItem('kidOfficeProject', PROJECT) } catch {}; people.clear(); devSlots = []; EVENTS = []; since = 0; selected = null; firstSync = true; tagEls.forEach(e => { e.tag.remove(); e.bubble.remove() }); tagEls.clear(); connect() }
+  if (!list.length) { S.empty = true; renderStatus() } else connect()
+  let saved = null; try { saved = localStorage.getItem('kidOfficeView') } catch {}
+  if (qs.get('view') === '3d' || saved === '3d') setView('3d')
+  requestAnimationFrame(frame)
+}
+
+// logo: KID's head
+;(() => { const c = document.getElementById('logo').getContext('2d'); c.imageSmoothingEnabled = false; drawPerson(c, 2, -1, LOOKS.kid, { pose: 'sit' }) })()
+setInterval(() => { renderFeed(); if (document.getElementById('tab-chat').classList.contains('on')) renderChat() }, 30000)
+boot()
+</script>
+</body>
+</html>

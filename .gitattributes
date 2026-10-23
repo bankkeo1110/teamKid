@@ -1,0 +1,6 @@
+*.cmd -text
+*.bundle binary
+*.patch -text
+*.sh text eol=lf
+kidwin/** text eol=lf
+kidwin/office/vendor/*.js -text

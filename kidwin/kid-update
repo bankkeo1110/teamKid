@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# kid-update — update Team KID's tools on this machine from GitHub (no zip downloads).
+#   kid-update          pull the latest kit and reinstall kid, start-kid, new-kid-project, kid-office
+#   kid-update --check  only say whether a newer version exists
+set -uo pipefail
+REPO="${TEAMKID_REPO:-https://github.com/bankkeo1110/teamKid.git}"
+KIT="$HOME/.teamkid/kit"
+say() { printf '\033[1;36m▶ %s\033[0m\n' "$*"; }
+have=$(cat "$KIT/VERSION" 2>/dev/null || echo "chưa có")
+if [ "${1:-}" = --check ]; then
+  latest=$(curl -fsSL "https://raw.githubusercontent.com/bankkeo1110/teamKid/main/VERSION" 2>/dev/null || echo "?")
+  echo "Đang dùng: $have · Mới nhất: $latest"; [ "$have" = "$latest" ] && echo "Đã là bản mới nhất." || echo "Chạy: kid-update"
+  exit 0
+fi
+say "Tải bản mới nhất từ GitHub"
+if [ -d "$KIT/.git" ]; then git -C "$KIT" fetch -q --depth 1 origin main && git -C "$KIT" reset -q --hard origin/main
+else mkdir -p "$(dirname "$KIT")" && git clone -q --depth 1 "$REPO" "$KIT"; fi || { echo "Không tải được từ GitHub. Kiểm tra mạng."; exit 1; }
+say "Cài lại lệnh và KID Office"
+bash "$KIT/kidwin/provision-user.sh" helpers || exit 1
+command -v kid-office >/dev/null && kid-office --bg >/dev/null 2>&1
+echo "✓ Team KID: $have → $(cat "$KIT/VERSION")"

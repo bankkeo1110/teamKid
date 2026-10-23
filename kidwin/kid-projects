@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# kid-projects — list Team KID projects in your home folder, one name per line.
+for d in "$HOME"/*/; do
+  [ -f "$d.claude/agents/kid.md" ] && [ -f "$d.agents/orchestrator.md" ] && basename "$d"
+done

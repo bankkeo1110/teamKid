@@ -1,0 +1,1 @@
+# Words in this project that look like skills but are not. One per line.
