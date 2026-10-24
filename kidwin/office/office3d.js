@@ -178,10 +178,16 @@ function makePerson(L) {
     const band = new THREE.Mesh(new THREE.TorusGeometry(.19, .018, 6, 20, Math.PI), pm); band.position.y = .02; head.add(band)
     for (const x of [-.18, .18]) { const cup = cyl(.06, .06, .05, pm); cup.rotation.z = Math.PI / 2; cup.position.set(x, -.01, 0); head.add(cup) }
   }
+  // props for resting: a mug in the right hand, a phone held in front
+  const mug = cyl(.04, .035, .09, S('#F4F2EC')); mug.position.set(0, -.6, .06); armR.add(mug)
+  const phone = box(.08, .015, .15, S('#20242F')); phone.position.set(.27, -.6, .05); armL.add(phone)
+  mug.visible = phone.visible = false
   shadowy(root)
-  return { root, body, legL, legR, armL, armR, head }
+  return { root, body, legL, legR, armL, armR, head, prop: { coffee: mug, phone } }
 }
 function pose(P, kind, t, k = 0) {
+  if (P.prop) { P.prop.coffee.visible = false; P.prop.phone.visible = false }
+  P.body.rotation.x = 0
   if (kind === 'sit') {
     P.body.position.y = -.43
     P.legL.rotation.x = P.legR.rotation.x = -Math.PI / 2
@@ -191,6 +197,17 @@ function pose(P, kind, t, k = 0) {
     P.armL.rotation.z = .12; P.armR.rotation.z = -.12
     P.head.rotation.x = k ? .08 + Math.sin(t * 2) * .03 : -.05 + Math.sin(t * .8) * .04
     P.head.rotation.z = k ? 0 : Math.sin(t * .6) * .06
+  } else if (kind === 'rest') {
+    // a teammate with no ticket: same chair, off the clock
+    P.body.position.y = -.43
+    P.legL.rotation.x = P.legR.rotation.x = -Math.PI / 2 + (k === 'lean' ? .25 : 0)
+    P.body.rotation.x = k === 'lean' ? -.22 : k === 'nap' ? -.12 : 0
+    P.armL.rotation.set(0, 0, 0); P.armR.rotation.set(0, 0, 0); P.head.rotation.set(0, 0, 0)
+    if (k === 'lean') { P.armL.rotation.set(-2.75, 0, .55); P.armR.rotation.set(-2.75, 0, -.55); P.head.rotation.x = -.15 + Math.sin(t * .5) * .03 }
+    else if (k === 'coffee') { const sip = (t % 6) < 1.6; P.armL.rotation.set(-1.0, 0, .12); P.armR.rotation.set(sip ? -2.2 : -1.0, 0, sip ? -.45 : -.12); P.head.rotation.x = sip ? -.18 : Math.sin(t * .7) * .04 }
+    else if (k === 'phone') { P.armL.rotation.set(-1.25, 0, -.18); P.armR.rotation.set(-1.25, 0, .18); P.head.rotation.x = .5 }
+    else { P.armL.rotation.set(-.4, 0, .1); P.armR.rotation.set(-.4, 0, -.1); P.head.rotation.set(.35, 0, .35 + Math.sin(t * .4) * .04) }
+    if (P.prop) { P.prop.coffee.visible = k === 'coffee'; P.prop.phone.visible = k === 'phone' }
   } else if (kind === 'walk') {
     P.body.position.y = Math.abs(Math.sin(t * 9)) * .03
     const s = Math.sin(t * 9) * .55
@@ -483,6 +500,22 @@ export function mount(wrap, KID) {
     return LOOKS[a.role] || DEV_LOOKS[0]
   }
   const seatWorld = st => new THREE.Vector3(st.seat.x, 0, st.seat.z)
+  // teammates who are in the office without a ticket: one per team desk, resting until dispatched
+  const REST = ['lean', 'coffee', 'phone', 'lean', 'nap', 'coffee']
+  const ghostLook = st => st === KIDST ? LOOKS.kid : st === POST ? LOOKS.shaper : st === QAST ? LOOKS.qa : { ...DEV_LOOKS[DEVST.indexOf(st) % DEV_LOOKS.length], acc: 'phones' }
+  const teamStations = () => { const n = Math.min(DEVST.length, Math.max(1, Number(KID.state().builderTarget) || 4)); return [KIDST, POST, QAST, ...DEVST.slice(0, n)] }
+  function syncGhosts() {
+    const team = new Set(teamStations())
+    stations.forEach((st, i) => {
+      const want = team.has(st) && !st.occupant
+      if (want && !st.ghost) {
+        const P = makePerson(ghostLook(st)); scene.add(P.root)
+        P.root.position.copy(seatWorld(st)).add(new THREE.Vector3(0, 0, .06).applyAxisAngle(new THREE.Vector3(0, 1, 0), st.seat.rot))
+        P.root.rotation.y = st.seat.rot
+        st.ghost = { P, i, phase: i * 1.7 }
+      } else if (!want && st.ghost) { scene.remove(st.ghost.P.root); st.ghost = null }
+    })
+  }
   const approachPoint = st => { const v = new THREE.Vector3(0, 0, -.75).applyAxisAngle(new THREE.Vector3(0, 1, 0), st.seat.rot); return seatWorld(st).add(v) }
   let first = true
   function sync() {
@@ -498,7 +531,7 @@ export function mount(wrap, KID) {
         P.root.add(mark); mark.position.y = 2.25
         scene.add(P.root)
         ac = { id: a.id, agent: a, st, P, mark, path: [], seated: false, leaving: false, thoughtAt: 0, lastThought: null, phase: Math.random() * 10 }
-        if (first || reduceMotion) seatActor(ac)
+        if (first || reduceMotion || teamStations().includes(st)) seatActor(ac)
         else { P.root.position.copy(DOOR); ac.path = [new THREE.Vector3(-10, 0, AISLE_Z), new THREE.Vector3(st.seat.x, 0, AISLE_Z), approachPoint(st), seatWorld(st)] }
         actors.set(a.id, ac)
       }
@@ -507,10 +540,11 @@ export function mount(wrap, KID) {
     }
     for (const [id, ac] of actors) if (!ids.has(id) && !ac.leaving) {
       ac.leaving = true; ac.seated = false; ac.st.occupant = null; devSlot.delete(id)
-      if (reduceMotion) { scene.remove(ac.P.root); actors.delete(id) }
+      if (reduceMotion || teamStations().includes(ac.st)) { scene.remove(ac.P.root); actors.delete(id) }
       else ac.path = [approachPoint(ac.st), new THREE.Vector3(ac.st.seat.x, 0, AISLE_Z), new THREE.Vector3(-10, 0, AISLE_Z), DOOR.clone()]
     }
     first = false
+    syncGhosts()
     paintBoard()
   }
   function seatActor(ac) {
@@ -566,6 +600,17 @@ export function mount(wrap, KID) {
       el.bubble.textContent = a.thought || ''
       el.bubble.className = `bubble${show ? ' show' : ''}${st === 'blocked' ? ' blocked' : ''}`
       el.bubble.style.left = bx + 'px'; el.bubble.style.top = by + 'px'
+    }
+    for (const st of stations) {
+      if (!st.ghost) continue
+      const id = 'ghost:' + st.ghost.i; keep.add(id)
+      let el = els.get(id)
+      if (!el) { el = { tag: document.createElement('span'), bubble: document.createElement('div') }; tags.append(el.bubble, el.tag); els.set(id, el) }
+      const label = st === KIDST ? 'KID' : st === POST ? 'PO' : st === QAST ? 'QA' : `Dev ${DEVST.indexOf(st) + 1}`
+      el.tag.className = 'tag off'; el.tag.textContent = ''; el.tag.innerHTML = `<span class="dot"></span>${label} · nghỉ`
+      st.ghost.P.root.getWorldPosition(v3); v3.y += .05; v3.project(camera)
+      const tx = (v3.x + 1) / 2 * w, ty = (1 - v3.y) / 2 * h
+      el.tag.style.display = v3.z < 1 ? '' : 'none'; el.tag.style.left = tx + 'px'; el.tag.style.top = (ty + 6) + 'px'
     }
     for (const [id, el] of els) if (!keep.has(id)) { el.tag.remove(); el.bubble.remove(); els.delete(id) }
   }
@@ -634,7 +679,11 @@ export function mount(wrap, KID) {
       }
       if (sel === id) { ac.st.ring.material.opacity = .9 }
     }
-    for (const st of stations) if (!st.occupant) for (const sc of st.screens) if (sc.material !== scrOff) sc.material = scrOff
+    for (const st of stations) if (!st.occupant) {
+      const m = st.ghost ? scrIdle : scrOff
+      for (const sc of st.screens) if (sc.material !== m) sc.material = m
+      if (st.ghost) pose(st.ghost.P, 'rest', t + st.ghost.phase, REST[(st.ghost.i + Math.floor(t / 20)) % REST.length])
+    }
     for (let i = planes.length - 1; i >= 0; i--) {
       const p = planes[i], k = (now - p.s) / p.d
       if (k >= 1) { scene.remove(p.m); planes.splice(i, 1); continue }

@@ -72,6 +72,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; pa
 .tag.working .dot { background: #6FE0B0; }
 .tag.blocked .dot { background: var(--block); }
 .tag.sel { background: var(--sticky); color: #2B2200; }
+.tag.off { opacity: .72; cursor: default; }
 .bubble { position: absolute; transform: translate(-50%, -100%); max-width: 230px; background: #FFFDF6; color: #1E2230; font-size: 12.5px; line-height: 1.35; padding: 6px 9px; border-radius: 6px; border: 2px solid #1E2230; box-shadow: 2px 2px 0 #1E2230; opacity: 0; transition: opacity .25s; }
 .bubble::after { content: ""; position: absolute; left: 50%; bottom: -8px; margin-left: -5px; border: 5px solid transparent; border-top-color: #1E2230; border-bottom: 0; }
 .bubble.show { opacity: 1; }
@@ -295,7 +296,18 @@ function drawPerson(c, x, y, L, o = {}) {
   else { R(1, 15, 10, 1, L.shirt2); R(5, 10, 2, 1, L.shirt2) }
   if (L.acc === 'cap') { R(4, 11, 1, 3, '#EAF6F3'); R(7, 11, 1, 3, '#EAF6F3') }
   // arms + hands
-  if (o.pose === 'sit') {
+  if (o.pose === 'sit' && o.rest === 'lean') {
+    // leaning back, hands behind the head
+    R(0, 5, 1, 7, L.shirt); R(11, 5, 1, 7, L.shirt); R(1, 3, 1, 2, L.skin); R(10, 3, 1, 2, L.skin)
+  } else if (o.pose === 'sit' && o.rest === 'coffee') {
+    const sip = (f % 12) < 4
+    R(0, 11, 1, 4, L.shirt); R(1, 14, 2, 1, L.skin)
+    R(11, sip ? 8 : 11, 1, sip ? 5 : 4, L.shirt); R(9, sip ? 8 : 13, 2, 1, L.skin)
+    R(8, sip ? 6 : 11, 2, 2, '#F4F2EC'); R(8, sip ? 6 : 11, 2, 1, '#C47A4E')
+  } else if (o.pose === 'sit' && o.rest === 'phone') {
+    R(0, 11, 1, 3, L.shirt); R(11, 11, 1, 3, L.shirt); R(3, 12, 2, 1, L.skin); R(7, 12, 2, 1, L.skin)
+    R(5, 11, 2, 3, '#20242F'); R(5, 11, 2, 1, '#8FD6CB')
+  } else if (o.pose === 'sit') {
     const up = o.typing ? (f % 2) : 0
     R(0, 11, 1, 4, L.shirt); R(11, 11, 1, 4, L.shirt)
     R(1, 14 - up, 2, 1, L.skin); R(9, 14 - (o.typing ? 1 - up : 0), 2, 1, L.skin)
@@ -312,8 +324,12 @@ function drawPerson(c, x, y, L, o = {}) {
   if (L.long) { R(2, 3, 1, 2, L.hair); R(9, 3, 1, 2, L.hair) }
   // eyes
   const blink = o.blink
-  R(4, 6, 1, blink ? 0 : 1, '#1B1B22'); R(7, 6, 1, blink ? 0 : 1, '#1B1B22')
-  if (blink) { R(4, 6, 1, 1, L.skin); R(7, 6, 1, 1, L.skin) }
+  if (o.rest === 'nap') { R(3, 7, 2, 1, '#1B1B22'); R(7, 7, 2, 1, '#1B1B22') }
+  else if (o.rest === 'phone') { R(4, 7, 1, 1, '#1B1B22'); R(7, 7, 1, 1, '#1B1B22') }
+  else {
+    R(4, 6, 1, blink ? 0 : 1, '#1B1B22'); R(7, 6, 1, blink ? 0 : 1, '#1B1B22')
+    if (blink) { R(4, 6, 1, 1, L.skin); R(7, 6, 1, 1, L.skin) }
+  }
   R(5, 8, 2, 1, o.mouth || '#B7695A')
   // accessories
   if (L.acc === 'cap') { R(1, 0, 10, 3, L.hat); R(2, 3, 9, 1, '#B94C40'); R(5, 1, 2, 1, '#FFD45C') }
@@ -458,7 +474,8 @@ function syncPeople() {
     let p = people.get(a.id)
     if (!p) {
       const s = seatFor(a)
-      p = { agent: a, ...s, look: lookFor(a, s.slot), pos: { ...DOOR }, path: reduceMotion || firstSync ? [] : pathTo(s.seat), seated: reduceMotion || firstSync, leaving: false, lastThought: null, thoughtAt: 0, blinkAt: Math.random() * 4000 }
+      const wasResting = s.kind === 'kid' || s.kind === 'shaper' || s.kind === 'qa' || s.slot < Math.max(1, Number(S.builderTarget) || 4)
+      p = { agent: a, ...s, look: lookFor(a, s.slot), pos: { ...DOOR }, path: reduceMotion || firstSync || wasResting ? [] : pathTo(s.seat), seated: reduceMotion || firstSync || wasResting, leaving: false, lastThought: null, thoughtAt: 0, blinkAt: Math.random() * 4000 }
       if (p.seated) p.pos = { x: s.seat.x, y: s.seat.y - 20 }
       people.set(a.id, p)
     }
@@ -467,10 +484,12 @@ function syncPeople() {
   }
   for (const [id, p] of people) {
     if (!ids.has(id) && !p.leaving) {
-      p.leaving = true; p.seated = false
-      p.path = reduceMotion ? [] : [{ x: p.seat.x, y: 76 }, { x: DOOR.x, y: 76 }, { ...DOOR }]
       const di = devSlots.indexOf(id); if (di >= 0) devSlots[di] = null
-      if (reduceMotion) people.delete(id)
+      // a teammate whose desk is part of the team stays at it and goes back to resting
+      const stays = p.kind !== 'dev' || p.slot < Math.max(1, Number(S.builderTarget) || 4)
+      if (stays || reduceMotion) { people.delete(id); continue }
+      p.leaving = true; p.seated = false
+      p.path = [{ x: p.seat.x, y: 76 }, { x: DOOR.x, y: 76 }, { ...DOOR }]
     }
   }
   firstSync = false
@@ -520,12 +539,19 @@ function frame(now) {
 
   // seats (occupied or empty), drawn back to front
   const occupied = new Map([...people.values()].filter(p => p.seated && !p.leaving).map(p => [p.seat, p]))
-  const allSeats = [{ seat: SEATS.shaper, kind: 'shaper' }, { seat: SEATS.qa, kind: 'qa' }, { seat: SEATS.kid, kind: 'kid' }, ...SEATS.dev.slice(0, Math.max(4, devSlots.length)).map(s => ({ seat: s, kind: 'dev' }))]
+  const allSeats = seatList()
   const drawables = []
   for (const s of allSeats) drawables.push({ y: s.seat.y, draw: () => {
     const p = occupied.get(s.seat)
     const st = p ? stateOf(p.agent) : null
     drawChair(cx, s.seat)
+    if (!p && s.ghost) {
+      // nobody dispatched to this desk: the teammate is in, resting, until KID gives them work
+      const rest = REST[(s.i + Math.floor(now / 20000)) % REST.length]
+      const blink = ((now + s.i * 977) % 4600) < 130
+      drawPerson(cx, s.seat.x - 6, s.seat.y - 20 - (rest === 'lean' ? 1 : 0) + (rest === 'nap' ? 1 : 0), s.look, { pose: 'sit', rest, frame: Math.floor(now / 250), blink })
+      if (rest === 'nap') { const k = (now / 1000) % 3; if (k < 2) { cx.fillStyle = '#E8EDF7'; const zx = s.seat.x + 6 + k * 3, zy = s.seat.y - 26 - k * 4; cx.fillRect(zx, zy, 4, 1); cx.fillRect(zx + 2, zy + 1, 1, 1); cx.fillRect(zx + 1, zy + 2, 1, 1); cx.fillRect(zx, zy + 3, 4, 1) } }
+    }
     if (p) {
       const blink = ((now + p.blinkAt) % 4200) < 130
       const glow = st === 'working' ? '#7FE3D2' : st === 'blocked' ? '#FF8C7F' : null
@@ -559,6 +585,22 @@ function frame(now) {
   requestAnimationFrame(frame)
 }
 
+// every desk, and who rests there while nobody is dispatched to it
+const REST = ['lean', 'coffee', 'phone', 'lean', 'nap', 'coffee']
+function seatList() {
+  const target = Math.min(SEATS.dev.length, Math.max(1, Number(S.builderTarget) || 4))
+  const hasKid = [...people.values()].some(p => p.kind === 'kid' && !p.leaving)
+  const list = [
+    { seat: SEATS.shaper, kind: 'shaper', role: 'shaper', look: LOOKS.shaper, label: 'PO' },
+    { seat: SEATS.qa, kind: 'qa', role: 'qa', look: LOOKS.qa, label: 'QA' },
+    { seat: SEATS.kid, kind: 'kid', role: 'kid', look: LOOKS.kid, label: 'KID', ghostOk: !hasKid },
+    ...SEATS.dev.slice(0, Math.max(target, devSlots.length)).map((seat, j) => ({ seat, kind: 'dev', role: 'builder', look: { ...DEV_LOOKS[j % DEV_LOOKS.length], acc: 'phones' }, label: `Dev ${j + 1}`, inTeam: j < target })),
+  ]
+  const busy = new Set([...people.values()].filter(p => !p.leaving).map(p => p.seat))
+  list.forEach((s, i) => { s.i = i; s.ghost = !busy.has(s.seat) && (s.kind === 'kid' ? s.ghostOk : s.kind === 'dev' ? s.inTeam : true) })
+  return list
+}
+
 // ======================================================================== overlay (name tags + bubbles)
 const overlay = document.getElementById('overlay')
 const tagEls = new Map()
@@ -586,6 +628,14 @@ function drawOverlay(now) {
     el.bubble.textContent = a.thought || ''
     el.bubble.className = `bubble${show ? ' show' : ''}${st === 'blocked' ? ' blocked' : ''}`
     el.bubble.style.left = `${p.seat.x * k}px`; el.bubble.style.top = `${(p.seat.y - 26) * k}px`
+  }
+  for (const s of seatList()) {
+    if (!s.ghost) continue
+    const id = 'ghost:' + s.i; keep.add(id)
+    let el = tagEls.get(id)
+    if (!el) { el = { tag: document.createElement('span'), bubble: document.createElement('div') }; overlay.append(el.bubble, el.tag); tagEls.set(id, el) }
+    el.tag.className = 'tag off'; el.tag.innerHTML = `<span class="dot"></span>${esc(s.label)} · nghỉ`
+    el.tag.style.left = `${s.seat.x * k}px`; el.tag.style.top = `${(s.seat.y + 15) * k}px`
   }
   for (const [id, el] of tagEls) if (!keep.has(id)) { el.tag.remove(); el.bubble.remove(); tagEls.delete(id) }
 }
