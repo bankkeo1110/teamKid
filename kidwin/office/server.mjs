@@ -89,7 +89,7 @@ function projectConfig(name) {
 }
 
 // ---------------------------------------------------------------- pane text → one line
-const UI_NOISE = /^(❯|>|\?|─|━|│|╭|╰|⏵|⏸|▶▶|⏩|esc to|shift\+tab|bypass permissions|auto mode|accept edits|\[.*\]$)/i
+const UI_NOISE = /^(❯|>|\?|─|━|│|╭|╰|⏵|⏸|▶▶|⏩|esc to|shift\+tab|bypass permissions|auto mode|accept edits|\[.*\]$|⚠?\s*astragentic-dispatch:|astragentic \d)/i
 function lastThought(text) {
   if (!text) return null
   const lines = text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').split('\n').map(l => l.replace(/\s+$/, ''))
@@ -97,7 +97,7 @@ function lastThought(text) {
     const l = lines[i].trim()
     if (l.startsWith('●') || l.startsWith('⏺')) {
       const t = l.replace(/^[●⏺]\s*/, '').trim()
-      if (t.length > 2) return t.slice(0, 160)
+      if (t.length > 2 && !UI_NOISE.test(t)) return t.slice(0, 160)
     }
   }
   for (let i = lines.length - 1; i >= 0; i--) {
