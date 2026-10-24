@@ -58,7 +58,7 @@ button, select, textarea { font: inherit; color: inherit; }
 .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--idle); }
 .pill.ok::before { background: #6FE0B0; }
 .pill.bad::before { background: var(--block); }
-.pill[hidden] { display: none; }
+[hidden] { display: none !important; }
 .demo-flag { background: var(--sticky); color: #3B2E00; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
 
 /* ---------- layout */
