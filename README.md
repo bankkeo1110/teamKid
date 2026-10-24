@@ -26,11 +26,16 @@ lời vài câu cấu hình. Chi tiết: [SETUP.md](SETUP.md).
 ## Xem team thật từ xa (điện thoại, máy khác)
 
 Trang **/office** trên website của bạn hiện đúng team đang chạy trên máy bạn: văn phòng 2D/3D,
-bảng Scrum, hoạt động. Chỉ xem, có mật khẩu. Màn hình terminal của agent không bao giờ rời máy.
+bảng Scrum, hoạt động. Xem và nhắn KID, có mật khẩu. Màn hình terminal của agent không bao giờ rời máy.
 
 1. Vercel → project → **Storage** → thêm **Upstash Redis** (gói miễn phí) và nối với project.
 2. Vercel → **Settings → Environment Variables** → thêm `VIEW_PASSWORD` (ít nhất 8 ký tự) → **Redeploy**.
 3. Trên máy, trong herdr: `kid-online connect` → nhập địa chỉ trang và mật khẩu. Xem trạng thái: `kid-online status`.
+
+**Nhắn KID từ xa:** tab **Nói với KID** trên trang /office. Tin đi qua Redis về máy bạn rồi được gõ vào
+ô của KID (5 đến 60 giây), KID biết là tin từ web. Tối đa 30 tin mỗi giờ. Hiện đăng nhập bằng mật khẩu
+xem là nhắn được; muốn tách mật khẩu nhắn riêng, thêm `CHAT_PASSWORD` (ít nhất 12 ký tự, khác
+`VIEW_PASSWORD`) trên Vercel rồi Redeploy.
 
 ## Lệnh hằng ngày (trong herdr)
 

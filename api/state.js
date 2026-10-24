@@ -7,6 +7,7 @@ export default async function handler(req, res) {
     const p = safeProject(url.searchParams.get('p'))
     if (!p) return send(res, 400, { error: 'project' })
     const since = Number(url.searchParams.get('since') || 0)
+    if (url.searchParams.get('touch')) await redis('SET', 'kid:viewer', String(Date.now()), 'EX', 600)
     const raw = await redis('GET', `kid:snap:${p}`)
     if (!raw) return send(res, 200, { empty: true })
     const s = JSON.parse(raw)

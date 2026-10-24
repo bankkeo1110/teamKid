@@ -10,5 +10,6 @@ export default async function handler(req, res) {
       projects = p ? JSON.parse(p) : []; paired = relay === 1
     }
   } catch (e) { return fail(res, e) }
-  send(res, 200, { loggedIn, configured: cfg, paired, projects })
+  if (loggedIn && cfg.redis) await redis('SET', 'kid:viewer', String(Date.now()), 'EX', 600).catch(() => {})
+  send(res, 200, { loggedIn, configured: cfg, paired, projects, chatUnlocked: loggedIn && hasSession(req, 'chat') })
 }

@@ -260,12 +260,14 @@ class Collector {
     this.state.commits = commits.slice(0, 12)
   }
 
-  async say(text) {
+  async say(text, { remote = false } = {}) {
     const kid = this.state.agents.find(a => a.role === 'kid')
     if (!kid) return { ok: false, error: 'KID chưa chạy trong herdr. Mở Start KID trước.' }
-    const out = await run('herdr', ['agent', 'prompt', kid.pane, text], { timeout: 8000 })
+    // a message typed on the website is labelled, so KID knows where it came from
+    const prompt = remote ? `[Tin nhắn từ xa của chủ dự án, gửi qua KID Office web]\n${text}` : text
+    const out = await run('herdr', ['agent', 'prompt', kid.pane, prompt], { timeout: 8000 })
     if (out === null) return { ok: false, error: 'herdr không gửi được tin nhắn vào ô của KID.' }
-    this.push({ kind: 'owner', from: 'owner', to: 'kid', text: `Bạn: ${text.slice(0, 120)}`, always: true })
+    this.push({ kind: 'owner', from: 'owner', to: 'kid', remote, text: `Bạn${remote ? ' (từ xa)' : ''}: ${text.slice(0, 300)}`, always: true })
     return { ok: true }
   }
 }
@@ -408,6 +410,7 @@ async function pushOnline() {
           body: JSON.stringify({ project: p, projects, state: st, events: c.events.slice(-150) }),
           signal: AbortSignal.timeout(10000),
         })
+        if (r.ok) { const j = await r.json().catch(() => ({})); if (j.viewerAt) viewerAt = Math.max(viewerAt, Number(j.viewerAt)) }
         const result = r.ok ? 'ok' : r.status === 401 ? 'sai mã ghép nối (chạy lại kid-online connect)' : `lỗi ${r.status}`
         pushed.set(p, { sig, evAt: lastEv, at: now(), result })
         status.projects[p] = result
@@ -417,6 +420,32 @@ async function pushOnline() {
   } finally { pushing = false }
 }
 setInterval(pushOnline, 4000)
+
+// messages typed on the website: the machine collects them from the inbox and types them into KID.
+// Every 5 s while someone has the site open (viewerAt), every 60 s otherwise.
+let viewerAt = 0, lastInbox = 0, inboxBusy = false
+async function pollInbox() {
+  if (!online || inboxBusy) return
+  const fast = now() - viewerAt < 5 * 60e3
+  if (now() - lastInbox < (fast ? 5000 : 60000)) return
+  lastInbox = now(); inboxBusy = true
+  try {
+    const r = await fetch(online.url.replace(/\/+$/, '') + '/api/inbox', { method: 'POST', headers: { authorization: 'Bearer ' + online.secret }, signal: AbortSignal.timeout(10000) })
+    if (!r.ok) return
+    const j = await r.json()
+    if (j.viewerAt) viewerAt = Math.max(viewerAt, Number(j.viewerAt))
+    for (const m of j.messages || []) {
+      if (!listProjects().includes(m.project)) continue
+      if (!collectors.has(m.project)) collectors.set(m.project, new Collector(m.project))
+      const c = collectors.get(m.project)
+      if (!c.state.updatedAt) await c.tick()
+      const res = await c.say(String(m.text || '').slice(0, 2000), { remote: true })
+      if (!res.ok) c.push({ kind: 'system', text: `Không chuyển được tin từ xa: ${res.error}`, always: true })
+      viewerAt = now()
+    }
+  } catch {} finally { inboxBusy = false }
+}
+setInterval(pollInbox, 2500)
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost')

@@ -13,8 +13,12 @@ const RURL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
 const RTOK = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
 const TCPURL = process.env.REDIS_URL || process.env.KV_URL
 const PASSWORD = process.env.VIEW_PASSWORD || ''
+const CHAT_PASSWORD = process.env.CHAT_PASSWORD || ''
 
-export const configured = () => ({ redis: Boolean((RURL && RTOK) || TCPURL), password: PASSWORD.length >= 8 })
+// Messaging KID from the web: on whenever the view password is set. Until CHAT_PASSWORD (12+ chars,
+// different from VIEW_PASSWORD) is added, the view login also unlocks messaging.
+const chatSeparate = () => CHAT_PASSWORD.length >= 12 && CHAT_PASSWORD !== PASSWORD
+export const configured = () => ({ redis: Boolean((RURL && RTOK) || TCPURL), password: PASSWORD.length >= 8, chat: PASSWORD.length >= 8, chatSeparate: chatSeparate() })
 
 export async function redis(...cmd) {
   if (RURL && RTOK) {
@@ -63,28 +67,38 @@ function tcpCommand(cmd) {
 
 const sha = s => crypto.createHash('sha256').update(String(s)).digest()
 export const sha256hex = s => sha(s).toString('hex')
-export function samePassword(given) {
-  if (!PASSWORD) return false
-  return crypto.timingSafeEqual(sha(given || ''), sha(PASSWORD))
+export function samePassword(given, which = 'view') {
+  const want = which === 'chat' && chatSeparate() ? CHAT_PASSWORD : PASSWORD
+  if (!want) return false
+  return crypto.timingSafeEqual(sha(given || ''), sha(want))
 }
 
 // session cookie: "<expiry>.<hmac>", key derived from the password + Redis token, so changing
 // the password logs every browser out.
-const KEY = () => sha(`kid-office:${PASSWORD}:${RTOK || TCPURL || ''}`)
-const sign = v => crypto.createHmac('sha256', KEY()).update(v).digest('base64url')
-const COOKIE = 'kid_session'
-export function setSession(res, days = 30) {
+const KEY = scope => sha(`kid-office:${scope}:${PASSWORD}:${scope === 'chat' && chatSeparate() ? CHAT_PASSWORD : ''}:${RTOK || TCPURL || ''}`)
+const sign = (v, scope) => crypto.createHmac('sha256', KEY(scope)).update(v).digest('base64url')
+const COOKIES = { view: 'kid_session', chat: 'kid_chat' }
+export function setSession(res, days = 30, scope = 'view') {
   const exp = String(Date.now() + days * 864e5)
-  res.setHeader('set-cookie', `${COOKIE}=${exp}.${sign(exp)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${days * 86400}`)
+  const prev = res.getHeader('set-cookie'); const list = prev ? [].concat(prev) : []
+  list.push(`${COOKIES[scope]}=${exp}.${sign(exp, scope)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${days * 86400}`)
+  res.setHeader('set-cookie', list)
 }
-export function clearSession(res) { res.setHeader('set-cookie', `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`) }
-export function hasSession(req) {
-  const raw = (req.headers.cookie || '').split(/;\s*/).find(c => c.startsWith(COOKIE + '='))
+export function clearSession(res) { res.setHeader('set-cookie', Object.values(COOKIES).map(c => `${c}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`)) }
+export function hasSession(req, scope = 'view') {
+  if (scope === 'chat' && !chatSeparate()) return hasSession(req, 'view')
+  const name = COOKIES[scope]
+  const raw = (req.headers.cookie || '').split(/;\s*/).find(c => c.startsWith(name + '='))
   if (!raw || !PASSWORD) return false
-  const [exp, mac] = raw.slice(COOKIE.length + 1).split('.')
+  const [exp, mac] = raw.slice(name.length + 1).split('.')
   if (!exp || !mac || Number(exp) < Date.now()) return false
-  const want = sign(exp)
+  const want = sign(exp, scope)
   return mac.length === want.length && crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(want))
+}
+export async function relayOk(req) {
+  const tok = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  const want = await redis('GET', 'kid:relay')
+  return Boolean(tok && want && sha256hex(tok) === want)
 }
 
 export function send(res, code, body) {

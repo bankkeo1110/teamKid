@@ -634,11 +634,16 @@ function renderFeed() {
     li.append(ic, body); return li
   }))
 }
+let PENDING = []
 function renderChat() {
   const log = document.getElementById('chatLog')
-  const msgs = EVENTS.filter(e => e.kind === 'owner' || (e.kind === 'say' && e.role === 'kid')).slice(-60)
-  if (!msgs.length) { log.innerHTML = '<p class="nothing">Gửi yêu cầu cho KID như khi nói với một công ty phần mềm: muốn làm gì, cho ai dùng, cái gì quan trọng nhất.</p>'; return }
-  log.innerHTML = msgs.map(e => `<div class="msg${e.kind === 'owner' ? ' me' : ''}">${esc(e.text.replace(/^(Bạn|KID): /, ''))}<time>${e.kind === 'owner' ? 'Bạn' : 'KID'}, ${ago(e.at)}</time></div>`).join('')
+  const msgs = EVENTS.filter(e => e.kind === 'owner' || e.kind === 'system' || (e.kind === 'say' && e.role === 'kid')).slice(-60)
+  // remote messages still in the inbox: shown until the machine reports it typed them into KID
+  const arrived = t => EVENTS.some(e => e.kind === 'owner' && e.remote && e.at >= t.at - 60e3 && e.text.includes(t.text.slice(0, 60)))
+  PENDING = PENDING.filter(t => !arrived(t) && Date.now() - t.at < 30 * 60e3)
+  const pend = PENDING.map(t => `<div class="msg me" style="opacity:.7">${esc(t.text)}<time>Bạn, đang chờ máy nhận</time></div>`).join('')
+  if (!msgs.length && !pend) { log.innerHTML = '<p class="nothing">Gửi yêu cầu cho KID như khi nói với một công ty phần mềm: muốn làm gì, cho ai dùng, cái gì quan trọng nhất.</p>'; return }
+  log.innerHTML = msgs.map(e => e.kind === 'system' ? `<p class="err" style="margin:0">${esc(e.text)}</p>` : `<div class="msg${e.kind === 'owner' ? ' me' : ''}">${esc(e.text.replace(/^(Bạn \(từ xa\)|Bạn|KID): /, ''))}<time>${e.kind === 'owner' ? (e.remote ? 'Bạn, từ xa' : 'Bạn') : 'KID'}, ${ago(e.at)}</time></div>`).join('') + pend
   log.scrollTop = log.scrollHeight
 }
 function renderDetail() {
@@ -718,8 +723,10 @@ document.getElementById('chatForm').addEventListener('submit', async ev => {
   const text = ta.value.trim(); if (!text) { err.textContent = 'Viết yêu cầu trước khi gửi.'; return }
   btn.disabled = true; err.textContent = ''
   try {
-    const r = STATIC ? (demo ? demo.say(text) : { ok: false, error: 'Bản mô phỏng chưa sẵn sàng.' }) : await fetch(api('/api/say'), { method: 'POST', headers: { 'content-type': 'application/json', 'x-kid-token': TOKEN || '' }, body: JSON.stringify({ text }) }).then(r => r.json())
-    if (r.ok) { ta.value = ''; launchPlane('owner', 'kid', '#FFD45C'); view3d?.plane('owner', 'kid', true) } else err.textContent = r.error || 'Không gửi được.'
+    const r = ONLINE
+      ? await fetch('/api/say', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: PROJECT, text }) }).then(async x => { const j = await x.json().catch(() => ({})); if (x.ok) PENDING.push({ text, at: Date.now() }); return j })
+      : STATIC ? (demo ? demo.say(text) : { ok: false, error: 'Bản mô phỏng chưa sẵn sàng.' }) : await fetch(api('/api/say'), { method: 'POST', headers: { 'content-type': 'application/json', 'x-kid-token': TOKEN || '' }, body: JSON.stringify({ text }) }).then(r => r.json())
+    if (r.ok) { ta.value = ''; launchPlane('owner', 'kid', '#FFD45C'); view3d?.plane('owner', 'kid', true); renderChat() } else err.textContent = r.error || 'Không gửi được.'
   } catch { err.textContent = 'Mất kết nối với KID Office. Kiểm tra cửa sổ herdr còn mở không.' }
   btn.disabled = false
 })
@@ -773,7 +780,8 @@ let pollTimer = null
 async function pollOnline() {
   clearTimeout(pollTimer)
   try {
-    const r = await fetch(`/api/state?p=${encodeURIComponent(PROJECT)}&since=${since}`, { credentials: 'same-origin', cache: 'no-store' })
+    pollOnline.n = (pollOnline.n || 0) + 1
+    const r = await fetch(`/api/state?p=${encodeURIComponent(PROJECT)}&since=${since}${pollOnline.n % 12 === 1 ? '&touch=1' : ''}`, { credentials: 'same-origin', cache: 'no-store' })
     if (r.status === 401) { location.reload(); return }
     const d = await r.json()
     const sync = document.getElementById('pSync'); sync.hidden = false
@@ -826,6 +834,7 @@ async function boot() {
 async function bootOnline() {
   requestAnimationFrame(frame)
   document.getElementById('chatForm').hidden = true; document.getElementById('chatRemote').hidden = false
+  document.querySelector('#chatForm small').textContent = 'Tin nhắn đi qua trang web về máy bạn, rồi được gõ vào ô của KID (5 đến 60 giây).'
   const box = document.getElementById('emptyOffice'), msg = document.getElementById('emptyMsg')
   const show = html => { box.classList.add('show'); msg.innerHTML = html }
   const me = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.json()).catch(() => null)
@@ -845,6 +854,18 @@ async function bootOnline() {
     return
   }
   const lo = document.getElementById('logout'); lo.hidden = false
+  const remote = document.getElementById('chatRemote')
+  if (me.configured.chat && me.chatUnlocked) { document.getElementById('chatForm').hidden = false; remote.hidden = true }
+  else if (me.configured.chat) {
+    remote.innerHTML = `Nhắn KID từ xa cần mật khẩu nhắn tin (khác mật khẩu xem).
+      <form id="chatUnlock" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><input id="chatPw" type="password" autocomplete="off" aria-label="Mật khẩu nhắn tin" style="flex:1;min-width:160px;font:inherit;padding:8px 10px;border-radius:6px;border:1px solid var(--line);background:var(--paper)"><button class="btn" type="submit">Mở khoá nhắn tin</button></form><span class="err" id="chatPwErr" role="alert"></span>`
+    document.getElementById('chatUnlock').addEventListener('submit', async e => {
+      e.preventDefault()
+      const r = await fetch('/api/chat-login', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: document.getElementById('chatPw').value }) })
+      if (r.ok) { remote.hidden = true; document.getElementById('chatForm').hidden = false; document.getElementById('chatText').focus() }
+      else document.getElementById('chatPwErr').textContent = (await r.json().catch(() => ({}))).error || 'Không mở khoá được.'
+    })
+  } else remote.innerHTML = 'Bạn đang xem từ xa nên chỉ đọc được. Muốn nhắn KID từ đây: trên Vercel thêm biến <code>CHAT_PASSWORD</code> (ít nhất 12 ký tự, khác mật khẩu xem) rồi deploy lại.'
   lo.onclick = async () => { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); location.reload() }
   if (!me.configured.redis) return show('<p><b>Chưa nối kho dữ liệu.</b></p><p>Trên Vercel: Storage → thêm Upstash Redis → nối với project này, rồi deploy lại.</p>')
   if (!me.paired || !me.projects.length) return show('<p><b>Máy của bạn chưa gửi dữ liệu.</b></p><p>Trong herdr trên máy bạn, mở tab mới và gõ <code>kid-online connect</code>.</p>')

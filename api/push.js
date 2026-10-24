@@ -1,12 +1,10 @@
 // POST from the owner's KID Office (relay): {project, projects, state, events}.
 // One Redis write per push, so the Upstash free tier lasts.
-import { send, body, redis, sha256hex, safeProject, fail } from './_lib.js'
+import { send, body, redis, safeProject, fail, relayOk } from './_lib.js'
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'POST' })
   try {
-    const tok = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
-    const want = await redis('GET', 'kid:relay')
-    if (!tok || !want || sha256hex(tok) !== want) return send(res, 401, { error: 'relay' })
+    if (!(await relayOk(req))) return send(res, 401, { error: 'relay' })
     const b = await body(req)
     const p = safeProject(b.project)
     if (!p || !b.state) return send(res, 400, { error: 'project/state' })
@@ -15,6 +13,7 @@ export default async function handler(req, res) {
     const cmds = [['SET', `kid:snap:${p}`, snap, 'EX', 7 * 86400]]
     if (Array.isArray(b.projects)) cmds.push(['SET', 'kid:projects', JSON.stringify(b.projects.map(safeProject).filter(Boolean).slice(0, 50))])
     for (const c of cmds) await redis(...c)
-    send(res, 200, { ok: true })
+    const viewerAt = Number(await redis('GET', 'kid:viewer') || 0)
+    send(res, 200, { ok: true, viewerAt })
   } catch (e) { return fail(res, e) }
 }
