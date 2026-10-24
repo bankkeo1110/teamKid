@@ -48,6 +48,8 @@ xem là nhắn được; muốn tách mật khẩu nhắn riêng, thêm `CHAT_PA
 | `kid-update` | Cập nhật Team KID từ GitHub |
 | `kid-online connect` | Gửi trạng thái team lên trang web của bạn (`status`, `off`) |
 | `kid-models` | Chọn model: KID chạy Opus, PO / Dev / QA chạy Sonnet (`--show` để xem) |
+| `kid-gemini --setup` | Dev giao phần gõ code cho Gemini để đỡ tốn token Claude (`--off` để tắt) |
+| `kid-gemini` | Claude hết token: mở Gemini CLI trong dự án để tự làm tiếp |
 
 ## Cấu trúc repo
 

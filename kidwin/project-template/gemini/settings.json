@@ -1,0 +1,4 @@
+{
+  "excludeTools": ["run_shell_command(git push)"],
+  "tools": { "exclude": ["run_shell_command(git push)"] }
+}

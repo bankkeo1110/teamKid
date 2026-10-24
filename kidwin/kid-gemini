@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# kid-gemini — Gemini in Team KID.
+#   kid-gemini --setup [project…]   sign in to Gemini once, then let each Developer hand the code typing
+#                                    to a Gemini junior (saves Claude tokens; the Developer still reviews)
+#   kid-gemini --off [project…]     Developers type alone again
+#   kid-gemini [project]            Claude is out of tokens: open Gemini CLI in the project to keep going
+#                                    yourself (no team, no gates — just you and Gemini)
+#   kid-gemini --repair             re-apply the setup where it is on (kid-update runs this)
+set -euo pipefail
+TPL="$HOME/.teamkid/project-template/gemini"
+ok()   { printf '  \033[32m✔\033[0m %s\n' "$*"; }
+warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
+die()  { printf '  \033[31m✘\033[0m %s\n' "$*"; exit 1; }
+MODE=run; ps=()
+for a in "$@"; do case "$a" in --setup) MODE=setup ;; --off) MODE=off ;; --repair) MODE=repair ;; -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; *) ps+=("$a") ;; esac; done
+all() { kid-projects 2>/dev/null || "$(dirname "$0")/kid-projects"; }
+junior_row() { awk '/^## Junior/{on=1;next} /^## /{on=0} on && /^\| *builder *\|/ {split($0,c,"|"); r=c[3]; gsub(/ /,"",r); print r; exit}' "$1"; }
+set_row() {  # set_row <orchestrator.md> <runtime>
+  awk -v rt="$2" '/^## Junior/{on=1} /^## / && !/^## Junior/{on=0}
+    on && /^\| *builder *\|/ { print "| builder | " rt " | | |"; next } { print }' "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+}
+logged_in() { [ -s "$HOME/.gemini/oauth_creds.json" ] || [ -n "${GEMINI_API_KEY:-}" ]; }
+need_cli() {
+  command -v gemini >/dev/null && return
+  say_ "Cài Gemini CLI"; npm i -g --prefix "$HOME/.local" @google/gemini-cli >/dev/null && ok "$(gemini --version 2>/dev/null)" || die "Không cài được Gemini CLI (npm)."
+}
+say_() { printf '\n\033[1;36m▸ %s\033[0m\n' "$*"; }
+
+apply() {  # apply <project>: files the Builder's dispatch-junior needs, then the Junior row
+  local root="$HOME/$1" f="$HOME/$1/.agents/orchestrator.md" changed=0
+  [ -f "$f" ] || { warn "bỏ qua $1: không thấy .agents/orchestrator.md"; return; }
+  [ -d "$root/.agents/roles" ] && ! cmp -s "$TPL/junior-gemini.md" "$root/.agents/roles/junior-gemini.md" && { cp "$TPL/junior-gemini.md" "$root/.agents/roles/"; changed=1; }
+  mkdir -p "$root/.gemini"; cmp -s "$TPL/settings.json" "$root/.gemini/settings.json" || { cp "$TPL/settings.json" "$root/.gemini/settings.json"; changed=1; }
+  for s in "$root/.claude/skills/dispatch-junior/SKILL.md" "$root/.agents/skills/dispatch-junior/SKILL.md"; do
+    [ -f "$s" ] && ! grep -q '^gemini → herdr agent start' "$s" || continue
+    # the launcher matrix is the first ```text block after "## 2."; add the gemini line at its end
+    python3 - "$s" "$TPL/launch.md" <<'PY'
+import sys; p, l = sys.argv[1], open(sys.argv[2]).read()
+s = open(p).read(); i = s.find('## 2.'); j = s.find('```text', i); k = s.find('```', j + 7)
+if i < 0 or j < 0 or k < 0: sys.exit('no launcher block')
+open(p, 'w').write(s[:k] + '\n' + l + s[k:])
+PY
+    changed=1
+  done
+  [ "$(junior_row "$f")" = gemini ] || { set_row "$f" gemini; changed=1; }
+  if [ $changed = 1 ]; then
+    git -C "$root" add .agents .gemini .claude/skills/dispatch-junior 2>/dev/null || true
+    git -C "$root" commit -q -m "Team KID: Developers hand code typing to a Gemini junior" && ok "$1: Dev giao phần gõ code cho Gemini"
+  else ok "$1: đã bật"; fi
+}
+
+case "$MODE" in
+  setup)
+    need_cli
+    if ! logged_in; then
+      say_ "Đăng nhập Gemini (một lần)"
+      echo "  Gemini CLI sẽ mở. Chọn  Login with Google  và đăng nhập tài khoản có Gemini Plus."
+      echo "  Thấy ô nhập tin nhắn là xong, gõ  /quit  để thoát."
+      read -rp "  Nhấn Enter để mở… " _
+      gemini || true
+      logged_in || die "Chưa thấy đăng nhập Gemini. Chạy lại: kid-gemini --setup"
+    fi
+    ok "Gemini đã đăng nhập"
+    [ ${#ps[@]} -gt 0 ] || mapfile -t ps < <(all)
+    for p in "${ps[@]}"; do apply "$p"; done
+    echo "  Ticket giao sau lúc này sẽ dùng Gemini. Tắt: kid-gemini --off" ;;
+  repair)
+    command -v gemini >/dev/null && logged_in || exit 0
+    for p in $(all); do f="$HOME/$p/.agents/orchestrator.md"; [ -f "$f" ] && [ "$(junior_row "$f")" = gemini ] && apply "$p"; done; true ;;
+  off)
+    [ ${#ps[@]} -gt 0 ] || mapfile -t ps < <(all)
+    for p in "${ps[@]}"; do f="$HOME/$p/.agents/orchestrator.md"; [ -f "$f" ] || continue
+      set_row "$f" none; git -C "$HOME/$p" commit -q -m "Team KID: Developers type alone" -- .agents/orchestrator.md 2>/dev/null && ok "$p: Dev tự gõ code" || ok "$p: đã tắt"; done ;;
+  run)
+    need_cli; logged_in || die "Chưa đăng nhập Gemini. Chạy: kid-gemini --setup"
+    p="${ps[0]:-}"
+    if [ -z "$p" ]; then mapfile -t list < <(all)
+      [ ${#list[@]} -eq 1 ] && p="${list[0]}" || { PS3="Số: "; echo "Chọn dự án:"; select x in "${list[@]}"; do [ -n "${x:-}" ] && { p="$x"; break; }; done; }
+    fi
+    cd "$HOME/$p" || die "Không thấy dự án $p"
+    printf '\033[1;36mGemini → %s\033[0m  (dự phòng khi Claude hết token: không có team, không có cổng kiểm soát)\n' "$p"
+    exec gemini --prompt-interactive "Claude is out of tokens, so you are standing in for the Team KID project in this folder until it is back. Read CLAUDE.md, AGENTS.md and .astraler/ledger.md if present, then run: gh issue list --state open --limit 20, git status, git worktree list. Tell me in Vietnamese, briefly, what is in progress and what you suggest doing next. Do not push, merge, close issues or remove worktrees unless I ask; work on a branch, never on main." ;;
+esac
