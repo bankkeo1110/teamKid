@@ -46,16 +46,20 @@ const run = (cmd, argv, { cwd, timeout = 8000 } = {}) => new Promise(resolve => 
 const json = s => { try { return JSON.parse(s) } catch { return null } }
 const readJson = p => { try { return JSON.parse(fs.readFileSync(p, 'utf8')) } catch { return null } }
 const now = () => Date.now()
+// Agent names differ between Astragentic versions (builder-/shaper-/qa- in 4.1, dev-/ba-/tester- and
+// others later), so match loosely. Anything herdr lists as an agent in the project's workspace is a
+// teammate: unknown names count as Developers rather than vanishing from the office.
 const ROLE_OF = name => {
   const n = (name || '').toLowerCase()
-  if (n.startsWith('builder-')) return 'builder'
-  if (n.startsWith('shaper-')) return 'shaper'
-  if (n.startsWith('qa-')) return 'qa'
-  if (n === 'kid' || n.endsWith('kid')) return 'kid'
+  if (!n) return null
+  if (n === 'kid' || n.endsWith('kid') || /^(thomas|orchestrator|scrum)/.test(n)) return 'kid'
+  if (/^(shaper|ba|po|spec|product|analyst|planner)\b/.test(n)) return 'shaper'
+  if (/^(qa|tester|test|verify|review)\b/.test(n)) return 'qa'
+  if (/^(builder|dev|developer|engineer|coder|impl|worker|ticket)\b/.test(n)) return 'builder'
   return null
 }
 const ticketOf = name => {
-  const m = (name || '').match(/^(?:builder|shaper|qa)-(.+)$/i)
+  const m = (name || '').match(/([a-z][a-z0-9]{0,9}-\d+)\s*$/i)
   return m ? m[1].toUpperCase() : null
 }
 const TICKET_RE = /^([A-Z][A-Z0-9]{1,9}-\d+)\s*[—:–-]?\s*(.*)$/
@@ -127,7 +131,8 @@ class Collector {
   async herdrAgents() {
     const wsRaw = json(await run('herdr', ['workspace', 'list']))
     if (!wsRaw) { this.state.herdr = 'offline'; return [] }
-    const ws = (wsRaw.result?.workspaces || []).find(w => w.label === this.cfg.label)
+    const list = wsRaw.result?.workspaces || [], lc = s => String(s || '').toLowerCase()
+    const ws = list.find(w => w.label === this.cfg.label) || list.find(w => lc(w.label) === lc(this.cfg.label)) || list.find(w => lc(w.label) === lc(this.cfg.name))
     if (!ws) { this.state.herdr = 'no-workspace'; return [] }
     const al = json(await run('herdr', ['agent', 'list']))
     if (!al) { this.state.herdr = 'offline'; return [] }
@@ -151,8 +156,8 @@ class Collector {
         if (t.startsWith('ticket:') || t.startsWith('builder:')) role = 'builder'
         else if (t.startsWith('spec:')) role = 'shaper'
         else if (t.startsWith('qa:')) role = 'qa'
+        else role = ROLE_OF(t) || 'builder'
       }
-      if (!role) continue
       let ticket = ticketOf(name) || (title.match(/:([A-Za-z]+-\d+)/) || [])[1]?.toUpperCase() || null
       const key = Object.keys(rec).find(k => rec[k]?.pane_id === a.pane_id) || (ticket && (rec[ticket] ? ticket : rec['qa:' + ticket] ? 'qa:' + ticket : null))
       const entry = key ? rec[key] : null
@@ -353,6 +358,16 @@ class Demo {
 }
 
 // ---------------------------------------------------------------- server
+if (flag('--doctor')) {
+  // kid-office --doctor: what the office sees, to paste when someone is missing
+  const ws = json(await run('herdr', ['workspace', 'list']))
+  const al = json(await run('herdr', ['agent', 'list']))
+  console.log('herdr:', ws ? 'ok' : 'không chạy / không đọc được')
+  for (const w of ws?.result?.workspaces || []) console.log(`  workspace ${w.workspace_id}  "${w.label}"`)
+  for (const a of al?.result?.agents || []) console.log(`  agent ${a.pane_id}  name="${a.name || ''}"  title="${a.terminal_title_stripped || ''}"  status=${a.agent_status}  → ${ROLE_OF(a.name) || ROLE_OF(a.terminal_title_stripped) || '(Developer)'}`)
+  for (const p of listProjects()) { const c = projectConfig(p); const w = (ws?.result?.workspaces || []).find(x => x.label === c.label); console.log(`project ${p}: workspace-label "${c.label}" → ${w ? w.workspace_id : 'KHÔNG THẤY workspace này trong herdr'}, builder-target ${c.builderTarget}`) }
+  process.exit(0)
+}
 const collectors = new Map()
 function getCollector(project) {
   if (DEMO) { if (!collectors.has('demo')) collectors.set('demo', new Demo()); return collectors.get('demo') }
