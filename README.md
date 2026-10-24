@@ -47,6 +47,7 @@ xem là nhắn được; muốn tách mật khẩu nhắn riêng, thêm `CHAT_PA
 | `kid-office` | Mở văn phòng ảo trên trình duyệt (`--demo` để xem thử) |
 | `kid-update` | Cập nhật Team KID từ GitHub |
 | `kid-online connect` | Gửi trạng thái team lên trang web của bạn (`status`, `off`) |
+| `kid-models` | Chọn model: KID chạy Opus, PO / Dev / QA chạy Sonnet (`--show` để xem) |
 
 ## Cấu trúc repo
 

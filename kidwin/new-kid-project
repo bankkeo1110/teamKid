@@ -153,6 +153,7 @@ Add one line per decision to .astraler/state/ADAPTATION-REPORT.md and change its
 Then stage only docs/ CLAUDE.md AGENTS.md .astraler/state and commit with message 'Finish Team KID adaptation'. Do not push." \
     2>&1 | tail -8
 fi
+command -v kid-models >/dev/null && kid-models "$NAME" || true   # KID on Opus, the rest on Sonnet
 git add -A docs CLAUDE.md AGENTS.md .astraler/state 2>/dev/null
 git diff --cached --quiet || git commit -q -m "Team KID project setup"
 git push -q -u origin HEAD 2>/dev/null && ok "đã push" || warn "chưa push được"

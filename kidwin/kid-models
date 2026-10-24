@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# kid-models — set which Claude model each role runs on, in every Team KID project (or the ones named).
+#   kid-models                 KID on Opus, Product Owner / Developer / Tester on Sonnet (no Opus advisor)
+#   kid-models team-kid        only that project
+#   kid-models --show          print the current table of each project
+# Override: KID_MODEL_LEAD=claude-opus-5-5 KID_MODEL_TEAM=claude-sonnet-5-5 kid-models
+# Takes effect for agents started after it runs; restart KID (Start KID) for KID's own model.
+set -euo pipefail
+LEAD="${KID_MODEL_LEAD:-claude-opus-5-5}"
+TEAM="${KID_MODEL_TEAM:-claude-sonnet-5-5}"
+SHOW=""; ps=()
+for a in "$@"; do case "$a" in --show) SHOW=1 ;; -h|--help) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; *) ps+=("$a") ;; esac; done
+[ ${#ps[@]} -gt 0 ] || mapfile -t ps < <(kid-projects 2>/dev/null || "$(dirname "$0")/kid-projects")
+
+for p in "${ps[@]}"; do
+  f="$HOME/$p/.agents/orchestrator.md"
+  [ -f "$f" ] || { echo "  bỏ qua $p: không thấy .agents/orchestrator.md"; continue; }
+  if [ -n "$SHOW" ]; then echo "== $p"; awk '/^## Active assignments/{on=1;next} /^## /{on=0} on && /^\|/' "$f"; continue; fi
+  # Only the "## Active assignments" table: | role | runtime | model | effort | advisor |
+  awk -v lead="$LEAD" -v team="$TEAM" '
+    /^## Active assignments/ { on=1 } /^## / && !/^## Active assignments/ { on=0 }
+    on && /^\| *(kid|shaper|builder|qa) *\|/ {
+      n = split($0, c, "|"); role = c[2]; gsub(/ /, "", role)
+      if (role == "kid") c[4] = " " lead " "
+      else { c[4] = " " team " "; c[6] = " " }   # Sonnet rows drop the Opus advisor
+      line = ""; for (i = 2; i < n; i++) line = line "|" c[i]; print line "|"; next
+    }
+    { print }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  if git -C "$HOME/$p" diff --quiet -- .agents/orchestrator.md; then echo "  $p: đã đúng"
+  else
+    git -C "$HOME/$p" commit -q -m "Team KID: KID on $LEAD, other roles on $TEAM" -- .agents/orchestrator.md && echo "  $p: KID → $LEAD, PO/Dev/QA → $TEAM"
+  fi
+done

@@ -50,7 +50,7 @@ phase_tools() {
 
 phase_helpers() {
   say "Cài lệnh kid, start-kid, new-kid-project"
-  for f in kid kid-projects start-kid new-kid-project kid-office kid-update kid-online; do install -m 0755 "$here/$f" "$HOME/.local/bin/$f"; done
+  for f in kid kid-projects start-kid new-kid-project kid-office kid-update kid-online kid-models; do install -m 0755 "$here/$f" "$HOME/.local/bin/$f"; done
   install -m 0644 "$here/env.sh" "$HOME/.teamkid/env.sh"
   mkdir -p "$HOME/.teamkid/office/vendor" && cp "$here/office/server.mjs" "$here/office/index.html" "$here/office/office3d.js" "$HOME/.teamkid/office/" && cp "$here/office/vendor/"* "$HOME/.teamkid/office/vendor/"
   pkill -f "$HOME/.teamkid/office/server.mjs" 2>/dev/null || true   # a running office picks up the new files on next start
@@ -61,9 +61,11 @@ phase_helpers() {
     o="$HOME/$proj/.astraler/project/overlays/kid.md"
     [ -f "$o" ] || { mkdir -p "$(dirname "$o")" && cp "$here/project-template/overlays/kid.md" "$o" && ok "quy tắc KID → $proj"; }
   done
+  # Owner's model choice (2026-10-24): KID on Opus, the rest on Sonnet. Once, so later edits to the tables stand.
+  [ -f "$HOME/.teamkid/models-v1" ] || { "$HOME/.local/bin/kid-models" && touch "$HOME/.teamkid/models-v1" || warn "kid-models chưa chạy xong — gõ kid-models để thử lại"; }
   grep -q 'teamkid/env.sh' "$HOME/.profile" 2>/dev/null || printf '\n[ -f "$HOME/.teamkid/env.sh" ] && . "$HOME/.teamkid/env.sh"\n' >> "$HOME/.profile"
   grep -q 'teamkid/env.sh' "$HOME/.bashrc" 2>/dev/null || printf '\n# Team KID\n[ -f "$HOME/.teamkid/env.sh" ] && . "$HOME/.teamkid/env.sh"\n' >> "$HOME/.bashrc"
-  ok "kid, kid-projects, start-kid, new-kid-project, kid-office, kid-update, kid-online"
+  ok "kid, kid-projects, start-kid, new-kid-project, kid-office, kid-update, kid-online, kid-models"
 }
 
 phase_github() {
