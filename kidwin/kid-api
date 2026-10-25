@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# kid-api — run the whole team on a Claude API key (Claude Console, pay per token) instead of your plan.
+#   kid-api on       paste a key once; every Claude Code session started after this uses it
+#   kid-api off      back to your Claude plan (the key stays saved for the next "on")
+#   kid-api status   which one is in use
+# Uses Claude Code's apiKeyHelper setting in ~/.claude/settings.json, so it reaches every agent
+# herdr starts, whatever shell or environment that pane has.
+set -euo pipefail
+KEY="$HOME/.teamkid/anthropic-key"
+HELPER="$HOME/.teamkid/api-key-helper.sh"
+SETTINGS="$HOME/.claude/settings.json"
+ok()   { printf '  \033[32m✔\033[0m %s\n' "$*"; }
+die()  { printf '  \033[31m✘\033[0m %s\n' "$*"; exit 1; }
+
+setting() {  # setting <path-or-empty>: set or remove apiKeyHelper, keep everything else
+  mkdir -p "$(dirname "$SETTINGS")"
+  node -e '
+    const fs = require("fs"), f = process.argv[1], v = process.argv[2]
+    let s = {}; try { s = JSON.parse(fs.readFileSync(f, "utf8")) } catch (e) { if (fs.existsSync(f)) { console.error("settings.json is not valid JSON"); process.exit(1) } }
+    if (v) s.apiKeyHelper = v; else delete s.apiKeyHelper
+    fs.writeFileSync(f, JSON.stringify(s, null, 2) + "\n")' "$SETTINGS" "$1"
+}
+current() { node -e 'try { process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).apiKeyHelper || "") } catch {}' "$SETTINGS"; }
+check() {  # the key works: list models
+  [ "$(curl -s -o /dev/null -w '%{http_code}' https://api.anthropic.com/v1/models -H "x-api-key: $1" -H 'anthropic-version: 2023-06-01')" = 200 ]
+}
+
+case "${1:-status}" in
+  on)
+    if [ ! -s "$KEY" ] || [ "${2:-}" = --new ]; then
+      echo "  Tạo key ở https://console.anthropic.com → API Keys, nạp credits và đặt giới hạn chi tiêu ở đó."
+      read -rsp "  Dán API key (không hiện chữ): " k; echo
+      k="$(printf '%s' "$k" | tr -d '[:space:]')"
+      [[ "$k" == sk-ant-* ]] || die "Key phải bắt đầu bằng sk-ant-"
+      check "$k" || die "Anthropic từ chối key này (sai key, hoặc tài khoản chưa nạp credits)."
+      mkdir -p "$(dirname "$KEY")"; (umask 077; printf '%s\n' "$k" > "$KEY")
+    else
+      check "$(cat "$KEY")" || die "Key đã lưu không còn dùng được. Nhập key mới: kid-api on --new"
+    fi
+    (umask 077; printf '#!/bin/sh\ncat "%s"\n' "$KEY" > "$HELPER"); chmod 700 "$HELPER"
+    setting "$HELPER"
+    ok "Cả team dùng API key (tính tiền theo token ở Claude Console)."
+    echo "  Tắt KID rồi mở lại bằng Start KID. Agent KID giao việc sau lúc này sẽ dùng key."
+    echo "  Lần đầu Claude Code có thể hỏi có dùng key này không → chọn Yes." ;;
+  off)
+    setting ""
+    ok "Cả team dùng lại gói Claude của bạn. Tắt KID rồi mở lại bằng Start KID." ;;
+  status)
+    if [ -n "$(current)" ]; then echo "  Đang dùng: API key (Claude Console). Tắt: kid-api off"
+    else echo "  Đang dùng: gói Claude (đăng nhập claude.ai). Bật API: kid-api on"; fi
+    [ -n "${ANTHROPIC_API_KEY:-}" ] && echo "  Lưu ý: biến ANTHROPIC_API_KEY đang được đặt trong shell này — nó cũng làm Claude Code dùng API." || true ;;
+  *) sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac

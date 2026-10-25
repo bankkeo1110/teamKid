@@ -50,7 +50,7 @@ phase_tools() {
 
 phase_helpers() {
   say "Cài lệnh kid, start-kid, new-kid-project"
-  for f in kid kid-projects start-kid new-kid-project kid-office kid-update kid-online kid-models kid-gemini; do install -m 0755 "$here/$f" "$HOME/.local/bin/$f"; done
+  for f in kid kid-projects start-kid new-kid-project kid-office kid-update kid-online kid-models kid-gemini kid-api; do install -m 0755 "$here/$f" "$HOME/.local/bin/$f"; done
   install -m 0644 "$here/env.sh" "$HOME/.teamkid/env.sh"
   mkdir -p "$HOME/.teamkid/office/vendor" && cp "$here/office/server.mjs" "$here/office/index.html" "$here/office/office3d.js" "$HOME/.teamkid/office/" && cp "$here/office/vendor/"* "$HOME/.teamkid/office/vendor/"
   pkill -f "$HOME/.teamkid/office/server.mjs" 2>/dev/null || true   # a running office picks up the new files on next start
@@ -66,7 +66,7 @@ phase_helpers() {
   PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/kid-gemini" --repair || warn "kid-gemini --repair lỗi — gõ kid-gemini --setup để làm lại"
   grep -q 'teamkid/env.sh' "$HOME/.profile" 2>/dev/null || printf '\n[ -f "$HOME/.teamkid/env.sh" ] && . "$HOME/.teamkid/env.sh"\n' >> "$HOME/.profile"
   grep -q 'teamkid/env.sh' "$HOME/.bashrc" 2>/dev/null || printf '\n# Team KID\n[ -f "$HOME/.teamkid/env.sh" ] && . "$HOME/.teamkid/env.sh"\n' >> "$HOME/.bashrc"
-  ok "kid, kid-projects, start-kid, new-kid-project, kid-office, kid-update, kid-online, kid-models, kid-gemini"
+  ok "kid, kid-projects, start-kid, new-kid-project, kid-office, kid-update, kid-online, kid-models, kid-gemini, kid-api"
 }
 
 phase_github() {
