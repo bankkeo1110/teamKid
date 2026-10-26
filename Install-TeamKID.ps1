@@ -19,8 +19,8 @@ if (-not $env:WT_SESSION -and $con -and $con.ForceV2 -eq 0) {
   exit
 }
 # Raster fonts print Vietnamese as '?': switch this window to Consolas (Windows Terminal needs nothing).
-if (-not $env:WT_SESSION) {
-  try {
+# The same helper saves/restores the console mode around wsl.exe, which leaves LF-without-CR on.
+try {
     Add-Type -ErrorAction Stop -TypeDefinition @'
 using System; using System.Runtime.InteropServices;
 public static class KidConsoleFont {
@@ -33,11 +33,14 @@ public static class KidConsoleFont {
     var f = new FontInfo(); f.cbSize = (uint)Marshal.SizeOf(f); f.Y = size; f.Family = 54; f.Weight = 400; f.Face = face;
     return SetCurrentConsoleFontEx(GetStdHandle(-11), false, ref f);
   }
+  [DllImport("kernel32.dll")] static extern bool GetConsoleMode(IntPtr h, out uint m);
+  [DllImport("kernel32.dll")] static extern bool SetConsoleMode(IntPtr h, uint m);
+  public static uint Mode() { uint m; return GetConsoleMode(GetStdHandle(-11), out m) ? m : 0; }
+  public static void Restore(uint m) { if (m != 0) SetConsoleMode(GetStdHandle(-11), m); }
 }
 '@
-    [void][KidConsoleFont]::Use('Consolas', 16)
-  } catch {}
-}
+    if (-not $env:WT_SESSION) { [void][KidConsoleFont]::Use('Consolas', 16) }
+} catch {}
 
 function Say($m)  { Write-Host "`n▶ $m" -ForegroundColor Cyan }
 function Ok($m)   { Write-Host "  ✓ $m" -ForegroundColor Green }
@@ -78,15 +81,23 @@ function ConvertTo-Arg([string]$s) {
 function Invoke-Wsl {
   # Runs a program inside Ubuntu (--exec, no shell in between) in THIS console window, so
   # interactive programs (Claude login, gh login) get a real terminal. Returns the exit code.
-  param([string[]]$Cmd, [switch]$Root, [string]$Cd = '~')
+  param([string[]]$Cmd, [switch]$Root, [string]$Cd = '~', [switch]$Window)
   $a = @('-d', $Distro, '--cd', $Cd)
   if ($Root) { $a += @('-u', 'root') }
   $a += '--exec'; $a += $Cmd
   $line = ($a | ForEach-Object { ConvertTo-Arg $_ }) -join ' '
+  if ($Window) {
+    # Claude's login and setup need a real terminal; some PowerShell consoles hand wsl.exe a pipe,
+    # and Claude then fails with "--print". A window of its own always gets a terminal.
+    $p = Start-Process wsl.exe -ArgumentList $line -Wait -PassThru
+    return $p.ExitCode
+  }
+  $mode = 0; try { $mode = [KidConsoleFont]::Mode() } catch {}
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = 'wsl.exe'; $psi.Arguments = $line; $psi.UseShellExecute = $false
   $p = [System.Diagnostics.Process]::Start($psi)
   $p.WaitForExit()
+  try { [KidConsoleFont]::Restore($mode) } catch {}
   return $p.ExitCode
 }
 
@@ -206,14 +217,14 @@ try {
   else {
     Write-Host ""
     Write-Host "  ┌ ĐĂNG NHẬP CLAUDE ───────────────────────────────────────────" -ForegroundColor Yellow
-    Write-Host "  │ Claude Code sẽ mở ngay trong cửa sổ này:"                        -ForegroundColor Yellow
+    Write-Host "  │ Claude Code sẽ mở trong một cửa sổ mới:"                          -ForegroundColor Yellow
     Write-Host "  │  1. Chọn giao diện (Enter), chọn đăng nhập bằng tài khoản Claude" -ForegroundColor Yellow
     Write-Host "  │  2. Trình duyệt mở ra → đăng nhập → bấm Authorize"               -ForegroundColor Yellow
     Write-Host "  │     (nếu trình duyệt không tự mở: giữ Ctrl + bấm vào link)"        -ForegroundColor Yellow
-    Write-Host "  │  3. Khi thấy ô chat của Claude, gõ  /exit  rồi Enter"             -ForegroundColor Yellow
+    Write-Host "  │  3. Khi thấy ô chat của Claude, gõ  /exit  rồi Enter (cửa sổ đó tự đóng)" -ForegroundColor Yellow
     Write-Host "  └──────────────────────────────────────────────────────────────" -ForegroundColor Yellow
     Read-Host "  Nhấn Enter để bắt đầu" | Out-Null
-    Invoke-Wsl -Cmd @('bash', '-lc', 'claude') | Out-Null
+    Invoke-Wsl -Window -Cmd @('bash', '-lc', 'claude') | Out-Null
     if (-not ((Get-Status) -contains 'claude-login')) {
       if ((Read-Host "  Bạn đã đăng nhập Claude thành công chưa? (y/n)") -match '^[yY]') {
         Invoke-Wsl -Cmd @('bash', '-c', 'mkdir -p ~/.teamkid && touch ~/.teamkid/claude-login-done') | Out-Null
@@ -257,7 +268,7 @@ try {
     Write-Host "  │ Khi Claude báo đã xong, gõ  /exit  rồi Enter."                       -ForegroundColor Yellow
     Write-Host "  └────────────────────────────────────────────────────────────────" -ForegroundColor Yellow
     Read-Host "  Nhấn Enter để bắt đầu" | Out-Null
-    Invoke-Wsl -Cd '~/team-kid' -Cmd @('bash', '-lc', 'claude /mattpocock-skills:setup-matt-pocock-skills') | Out-Null
+    Invoke-Wsl -Window -Cd '~/team-kid' -Cmd @('bash', '-lc', 'claude /mattpocock-skills:setup-matt-pocock-skills') | Out-Null
     if (-not ((Get-Status) -contains 'setup-skill')) {
       Warn "Chưa thấy docs/agents/triage-labels.md và domain.md. Chạy lại trình cài để làm lại bước này."
       Stop-Here 1
