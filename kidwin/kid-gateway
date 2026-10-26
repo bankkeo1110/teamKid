@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # kid-gateway — PO / Dev / QA call Claude through an API gateway (e.g. mwapi.dev); KID keeps your Claude login.
 #   kid-gateway on [base-url]   paste the gateway key once (default URL https://api.mwapi.dev)
+#   kid-gateway on --new        paste a different key
 #   kid-gateway off             every role back on your Claude login (key stays saved)
 #   kid-gateway status          on/off, and which roles went through the gateway lately
 # Takes effect for agents started after it, in new herdr panes.
@@ -16,9 +17,10 @@ check() {  # check <url> <key> <model>: one tiny message through the gateway
 }
 case "${1:-status}" in
   on)
+    NEW=""; [ "${2:-}" = --new ] && { NEW=1; shift; }
     url="${2:-https://api.mwapi.dev}"; url="${url%/}"
     [ "$url" = "${url#https://}" ] && die "Địa chỉ gateway phải bắt đầu bằng https://"
-    if [ -s "$OFF" ] && [ -z "${2:-}" ]; then mv "$OFF" "$GW"
+    if [ -s "$OFF" ] && [ -z "${2:-}" ] && [ -z "$NEW" ]; then mv "$OFF" "$GW"
     else
       read -rsp "  Dán key của gateway (không hiện chữ): " k; echo; k="$(printf '%s' "$k" | tr -d '[:space:]')"
       [ -n "$k" ] || die "Chưa có key."
@@ -27,8 +29,8 @@ case "${1:-status}" in
     set -a; . "$GW"; set +a
     m="$(model)"; m="${m:-claude-sonnet-5-5}"
     code="$(check "$ANTHROPIC_BASE_URL" "$ANTHROPIC_AUTH_TOKEN" "$m")"
-    if [ "$code" != 200 ]; then mv "$GW" "$OFF"; head -c 300 /tmp/kid-gw.$$ 2>/dev/null; echo; rm -f /tmp/kid-gw.$$
-      die "Gateway trả $code cho model $m — chưa bật. Kiểm tra key, số dư, và gateway có model $m không."; fi
+    if [ "$code" != 200 ]; then mv "$GW" "$GW.failed"; head -c 300 /tmp/kid-gw.$$ 2>/dev/null || true; echo; rm -f /tmp/kid-gw.$$
+      die "Gateway trả $code cho model $m — chưa bật. Kiểm tra key, số dư, và gateway có model $m không. Nhập lại: kid-gateway on --new"; fi
     rm -f /tmp/kid-gw.$$
     ok "PO / Dev / QA dùng gateway $ANTHROPIC_BASE_URL (đã thử model $m). KID vẫn dùng tài khoản Claude của bạn."
     echo "  Đóng hẳn herdr rồi mở lại bằng Start KID (hoặc trong PowerShell: wsl --shutdown) để tab mới nhận cấu hình." ;;
@@ -38,5 +40,5 @@ case "${1:-status}" in
   status)
     [ -f "$GW" ] && echo "  Bật: PO / Dev / QA → $(. "$GW"; echo "$ANTHROPIC_BASE_URL"); KID → tài khoản Claude" || echo "  Tắt: cả team dùng tài khoản Claude. Bật: kid-gateway on"
     [ -f "$LOG" ] && { echo "  Gần đây:"; tail -5 "$LOG" | sed 's/^/    /'; } || true ;;
-  *) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
