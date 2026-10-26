@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# kid-clone <repo> — bring an existing Team KID app from GitHub onto this machine (e.g. a new PC).
+#   kid-clone kid-marketing            your own repo
+#   kid-clone someone/kid-marketing    owner/repo
+# Clones into ~/<name>, installs the project's git hooks and KID's overlay. Then: kid <name>
+set -euo pipefail
+[ -n "${1:-}" ] || { sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+repo="$1"; [[ "$repo" == */* ]] || repo="$(gh api user -q .login)/$repo"
+dir="$HOME/${repo#*/}"
+[ -e "$dir" ] && { echo "  ~/${repo#*/} đã có trên máy."; exit 1; }
+gh repo clone "$repo" "$dir"
+cd "$dir"
+[ -x .astraler/project/install-hooks.sh ] && ./.astraler/project/install-hooks.sh >/dev/null 2>&1 || true
+o=.astraler/project/overlays/kid.md
+[ -f "$o" ] || { mkdir -p "$(dirname "$o")" && cp "$HOME/.teamkid/project-template/overlays/kid.md" "$o"; }
+[ -f .agents/orchestrator.md ] || echo "  ! Repo này chưa có team (thiếu .agents/orchestrator.md)."
+printf '  \033[32m✔\033[0m %s → ~/%s. Mở bằng: kid %s\n' "$repo" "${repo#*/}" "${repo#*/}"

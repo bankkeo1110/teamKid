@@ -50,7 +50,7 @@ phase_tools() {
 
 phase_helpers() {
   say "Cài lệnh kid, start-kid, new-kid-project"
-  for f in kid kid-projects start-kid new-kid-project kid-office kid-update kid-online kid-models kid-gemini kid-api kid-gateway; do install -m 0755 "$here/$f" "$HOME/.local/bin/$f"; done
+  for f in kid kid-projects start-kid new-kid-project kid-office kid-update kid-online kid-models kid-gemini kid-api kid-gateway kid-clone; do install -m 0755 "$here/$f" "$HOME/.local/bin/$f"; done
   install -m 0644 "$here/env.sh" "$HOME/.teamkid/env.sh"
   install -D -m 0755 "$here/bin/claude" "$HOME/.teamkid/bin/claude"
   mkdir -p "$HOME/.teamkid/office/vendor" && cp "$here/office/server.mjs" "$here/office/index.html" "$here/office/office3d.js" "$HOME/.teamkid/office/" && cp "$here/office/vendor/"* "$HOME/.teamkid/office/vendor/"
@@ -67,7 +67,7 @@ phase_helpers() {
   PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/kid-gemini" --repair || warn "kid-gemini --repair lỗi — gõ kid-gemini --setup để làm lại"
   grep -q 'teamkid/env.sh' "$HOME/.profile" 2>/dev/null || printf '\n[ -f "$HOME/.teamkid/env.sh" ] && . "$HOME/.teamkid/env.sh"\n' >> "$HOME/.profile"
   grep -q 'teamkid/env.sh' "$HOME/.bashrc" 2>/dev/null || printf '\n# Team KID\n[ -f "$HOME/.teamkid/env.sh" ] && . "$HOME/.teamkid/env.sh"\n' >> "$HOME/.bashrc"
-  ok "kid, kid-projects, start-kid, new-kid-project, kid-office, kid-update, kid-online, kid-models, kid-gemini, kid-api, kid-gateway"
+  ok "kid, kid-projects, start-kid, new-kid-project, kid-office, kid-update, kid-online, kid-models, kid-gemini, kid-api, kid-gateway, kid-clone"
 }
 
 phase_github() {
@@ -89,7 +89,12 @@ phase_github() {
 
   say "Tạo repo GitHub riêng tư 'team-kid' và các nhãn"
   cd "$KID" || return 1
-  if ! git remote get-url origin >/dev/null 2>&1; then
+  if ! git remote get-url origin >/dev/null 2>&1 && gh repo view "$login/team-kid" >/dev/null 2>&1; then
+    # a second machine for the same account: use the team-kid already on GitHub, keep the fresh copy aside
+    cd "$HOME" && mv "$KID" "$KID.local-$(date +%Y%m%d%H%M%S)" && gh repo clone "$login/team-kid" "$KID" >/dev/null 2>&1 \
+      && ok "đã lấy repo team-kid có sẵn trên GitHub" || { warn "không clone được $login/team-kid"; return 1; }
+    cd "$KID" && { [ -x .astraler/project/install-hooks.sh ] && ./.astraler/project/install-hooks.sh >/dev/null 2>&1 || true; }
+  elif ! git remote get-url origin >/dev/null 2>&1; then
     gh repo create team-kid --private --source . --push >/dev/null && ok "đã tạo $(gh repo view --json url -q .url)" \
       || { warn "không tạo được repo (có thể tên 'team-kid' đã tồn tại trên GitHub)"; return 1; }
   else ok "repo: $(git remote get-url origin)"; fi

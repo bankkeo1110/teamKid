@@ -18,6 +18,8 @@ repo GitHub cho dự án đầu tiên, và ba shortcut trên Desktop: **Start KI
 **Cập nhật Team KID**. Bạn chỉ cần bấm Yes, đặt mật khẩu Linux, đăng nhập Claude và GitHub, rồi trả
 lời vài câu cấu hình. Chi tiết: [SETUP.md](SETUP.md).
 
+**Máy thứ hai** (cùng tài khoản GitHub): chạy đúng lệnh trên. Trình cài tự lấy repo `team-kid` có sẵn trên GitHub; các app khác lấy bằng `kid-clone ten-app`.
+
 ## Cập nhật
 
 - Nhấp đúp **Cập nhật Team KID** trên Desktop, hoặc
@@ -44,6 +46,7 @@ xem là nhắn được; muốn tách mật khẩu nhắn riêng, thêm `CHAT_PA
 | `kid [app]` | Mở KID cho một app |
 | `new-kid-project ten-app` | Tạo app mới: repo riêng, team cài sẵn |
 | `kid-projects` | Liệt kê các app |
+| `kid-clone ten-app` | Máy mới: lấy app đã có trên GitHub về máy |
 | `kid-office` | Mở văn phòng ảo trên trình duyệt (`--demo` để xem thử) |
 | `kid-update` | Cập nhật Team KID từ GitHub |
 | `kid-online connect` | Gửi trạng thái team lên trang web của bạn (`status`, `off`) |
