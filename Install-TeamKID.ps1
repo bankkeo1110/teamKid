@@ -10,6 +10,35 @@ $env:WSL_UTF8 = '1'
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
 $Host.UI.RawUI.WindowTitle = 'Cài đặt Team KID'
 
+# The old "legacy console" gives WSL no real terminal: Claude login drops into --print mode and
+# output stair-steps. Turn it off for this user and restart the installer in a fresh window.
+$con = Get-ItemProperty HKCU:\Console -ErrorAction SilentlyContinue
+if (-not $env:WT_SESSION -and $con -and $con.ForceV2 -eq 0) {
+  Set-ItemProperty HKCU:\Console -Name ForceV2 -Value 1
+  Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
+  exit
+}
+# Raster fonts print Vietnamese as '?': switch this window to Consolas (Windows Terminal needs nothing).
+if (-not $env:WT_SESSION) {
+  try {
+    Add-Type -ErrorAction Stop -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public static class KidConsoleFont {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  public struct FontInfo { public uint cbSize; public uint nFont; public short X; public short Y; public int Family; public int Weight;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string Face; }
+  [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int n);
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool SetCurrentConsoleFontEx(IntPtr h, bool max, ref FontInfo f);
+  public static bool Use(string face, short size) {
+    var f = new FontInfo(); f.cbSize = (uint)Marshal.SizeOf(f); f.Y = size; f.Family = 54; f.Weight = 400; f.Face = face;
+    return SetCurrentConsoleFontEx(GetStdHandle(-11), false, ref f);
+  }
+}
+'@
+    [void][KidConsoleFont]::Use('Consolas', 16)
+  } catch {}
+}
+
 function Say($m)  { Write-Host "`n▶ $m" -ForegroundColor Cyan }
 function Ok($m)   { Write-Host "  ✓ $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "  ! $m" -ForegroundColor Yellow }
