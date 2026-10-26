@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Team KID claude shim (on PATH only while kid-gateway is on): team roles started with
+# `--agent <role>` other than kid go through the API gateway in ~/.teamkid/gateway.env;
+# KID and every other claude session keep the owner's Claude login.
+self_dir="$(cd "$(dirname "$0")" && pwd)"
+real=""; IFS=: read -ra dirs <<< "$PATH"
+for d in "${dirs[@]}"; do [ "$d" != "$self_dir" ] && [ -x "$d/claude" ] && { real="$d/claude"; break; }; done
+[ -n "$real" ] || { echo "Team KID: không tìm thấy lệnh claude thật" >&2; exit 127; }
+role=""; prev=""
+for a in "$@"; do [ "$prev" = --agent ] && role="$a"; case "$a" in --agent=*) role="${a#--agent=}" ;; esac; prev="$a"; done
+gw="$HOME/.teamkid/gateway.env"
+if [ -n "$role" ] && [ "$role" != kid ] && [ -r "$gw" ]; then
+  set -a; . "$gw"; set +a
+  unset ANTHROPIC_API_KEY
+  printf '%s %s → gateway (%s)\n' "$(date '+%F %T')" "$role" "$ANTHROPIC_BASE_URL" >> "$HOME/.teamkid/gateway.log"
+fi
+exec "$real" "$@"

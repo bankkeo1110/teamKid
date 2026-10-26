@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# kid-gateway — PO / Dev / QA call Claude through an API gateway (e.g. mwapi.dev); KID keeps your Claude login.
+#   kid-gateway on [base-url]   paste the gateway key once (default URL https://api.mwapi.dev)
+#   kid-gateway off             every role back on your Claude login (key stays saved)
+#   kid-gateway status          on/off, and which roles went through the gateway lately
+# Takes effect for agents started after it, in new herdr panes.
+set -euo pipefail
+GW="$HOME/.teamkid/gateway.env"; OFF="$HOME/.teamkid/gateway.env.off"; LOG="$HOME/.teamkid/gateway.log"
+ok()  { printf '  \033[32m✔\033[0m %s\n' "$*"; }
+die() { printf '  \033[31m✘\033[0m %s\n' "$*"; exit 1; }
+model() { for p in $(kid-projects 2>/dev/null); do awk -F'|' '/^## Active assignments/{on=1} on && $2 ~ /^ *builder *$/ {gsub(/ /,"",$4); print $4; exit}' "$HOME/$p/.agents/orchestrator.md" 2>/dev/null && return; done; }
+check() {  # check <url> <key> <model>: one tiny message through the gateway
+  curl -s -o /tmp/kid-gw.$$ -w '%{http_code}' "$1/v1/messages" -H "authorization: Bearer $2" -H "x-api-key: $2" \
+    -H 'anthropic-version: 2023-06-01' -H 'content-type: application/json' \
+    -d "{\"model\":\"$3\",\"max_tokens\":5,\"messages\":[{\"role\":\"user\",\"content\":\"OK\"}]}"
+}
+case "${1:-status}" in
+  on)
+    url="${2:-https://api.mwapi.dev}"; url="${url%/}"
+    [ "$url" = "${url#https://}" ] && die "Địa chỉ gateway phải bắt đầu bằng https://"
+    if [ -s "$OFF" ] && [ -z "${2:-}" ]; then mv "$OFF" "$GW"
+    else
+      read -rsp "  Dán key của gateway (không hiện chữ): " k; echo; k="$(printf '%s' "$k" | tr -d '[:space:]')"
+      [ -n "$k" ] || die "Chưa có key."
+      (umask 077; printf 'ANTHROPIC_BASE_URL=%q\nANTHROPIC_AUTH_TOKEN=%q\n' "$url" "$k" > "$GW")
+    fi
+    set -a; . "$GW"; set +a
+    m="$(model)"; m="${m:-claude-sonnet-5-5}"
+    code="$(check "$ANTHROPIC_BASE_URL" "$ANTHROPIC_AUTH_TOKEN" "$m")"
+    if [ "$code" != 200 ]; then mv "$GW" "$OFF"; head -c 300 /tmp/kid-gw.$$ 2>/dev/null; echo; rm -f /tmp/kid-gw.$$
+      die "Gateway trả $code cho model $m — chưa bật. Kiểm tra key, số dư, và gateway có model $m không."; fi
+    rm -f /tmp/kid-gw.$$
+    ok "PO / Dev / QA dùng gateway $ANTHROPIC_BASE_URL (đã thử model $m). KID vẫn dùng tài khoản Claude của bạn."
+    echo "  Đóng hẳn herdr rồi mở lại bằng Start KID (hoặc trong PowerShell: wsl --shutdown) để tab mới nhận cấu hình." ;;
+  off)
+    [ -f "$GW" ] && mv "$GW" "$OFF"
+    ok "Cả team dùng lại tài khoản Claude của bạn (agent mở sau lúc này)." ;;
+  status)
+    [ -f "$GW" ] && echo "  Bật: PO / Dev / QA → $(. "$GW"; echo "$ANTHROPIC_BASE_URL"); KID → tài khoản Claude" || echo "  Tắt: cả team dùng tài khoản Claude. Bật: kid-gateway on"
+    [ -f "$LOG" ] && { echo "  Gần đây:"; tail -5 "$LOG" | sed 's/^/    /'; } || true ;;
+  *) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac

@@ -51,6 +51,7 @@ xem là nhắn được; muốn tách mật khẩu nhắn riêng, thêm `CHAT_PA
 | `kid-gemini --setup` | Dev giao phần gõ code cho Gemini để đỡ tốn token Claude (`--off` để tắt) |
 | `kid-gemini` | Claude hết token: mở Gemini (Antigravity CLI `agy`) trong dự án để tự làm tiếp |
 | `kid-api on` | Cả team chạy bằng API key Claude Console (tính tiền theo token); `kid-api off` quay lại gói Claude |
+| `kid-gateway on` | PO / Dev / QA gọi Claude qua API gateway (mặc định api.mwapi.dev), KID giữ tài khoản Claude; `off`, `status` |
 
 ## Cấu trúc repo
 
