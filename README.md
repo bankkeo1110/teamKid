@@ -47,6 +47,7 @@ xem là nhắn được; muốn tách mật khẩu nhắn riêng, thêm `CHAT_PA
 | `new-kid-project ten-app` | Tạo app mới: repo riêng, team cài sẵn |
 | `kid-projects` | Liệt kê các app |
 | `kid-clone ten-app` | Máy mới: lấy app đã có trên GitHub về máy |
+| `kid-caveman on` / `off` | Cả team nói ngắn kiểu "caveman" trong chat để đỡ tốn token (code, commit, ticket, spec vẫn viết đầy đủ) |
 | `kid-office` | Mở văn phòng ảo trên trình duyệt (`--demo` để xem thử) |
 | `kid-update` | Cập nhật Team KID từ GitHub |
 | `kid-online connect` | Gửi trạng thái team lên trang web của bạn (`status`, `off`) |

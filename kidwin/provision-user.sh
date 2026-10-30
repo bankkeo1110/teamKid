@@ -50,7 +50,7 @@ phase_tools() {
 
 phase_helpers() {
   say "Cài lệnh kid, start-kid, new-kid-project"
-  for f in kid kid-projects start-kid new-kid-project kid-office kid-update kid-online kid-models kid-gemini kid-api kid-gateway kid-clone; do install -m 0755 "$here/$f" "$HOME/.local/bin/$f"; done
+  for f in kid kid-projects start-kid new-kid-project kid-office kid-update kid-online kid-models kid-gemini kid-api kid-gateway kid-clone kid-caveman; do install -m 0755 "$here/$f" "$HOME/.local/bin/$f"; done
   install -m 0644 "$here/env.sh" "$HOME/.teamkid/env.sh"
   install -D -m 0755 "$here/bin/claude" "$HOME/.teamkid/bin/claude"
   mkdir -p "$HOME/.teamkid/office/vendor" && cp "$here/office/server.mjs" "$here/office/index.html" "$here/office/office3d.js" "$HOME/.teamkid/office/" && cp "$here/office/vendor/"* "$HOME/.teamkid/office/vendor/"
@@ -64,10 +64,12 @@ phase_helpers() {
   done
   # Owner's model choice (2026-10-24): KID on Opus, the rest on Sonnet. Once, so later edits to the tables stand.
   [ -f "$HOME/.teamkid/models-v1" ] || { "$HOME/.local/bin/kid-models" && touch "$HOME/.teamkid/models-v1" || warn "kid-models chưa chạy xong — gõ kid-models để thử lại"; }
+  # Owner's choice (2026-10-30): caveman talk on for every project, once (kid-caveman off stands)
+  [ -f "$HOME/.teamkid/caveman-v1" ] || { PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/kid-caveman" on && touch "$HOME/.teamkid/caveman-v1" || warn "kid-caveman chưa chạy xong — gõ kid-caveman on"; }
   PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/kid-gemini" --repair || warn "kid-gemini --repair lỗi — gõ kid-gemini --setup để làm lại"
   grep -q 'teamkid/env.sh' "$HOME/.profile" 2>/dev/null || printf '\n[ -f "$HOME/.teamkid/env.sh" ] && . "$HOME/.teamkid/env.sh"\n' >> "$HOME/.profile"
   grep -q 'teamkid/env.sh' "$HOME/.bashrc" 2>/dev/null || printf '\n# Team KID\n[ -f "$HOME/.teamkid/env.sh" ] && . "$HOME/.teamkid/env.sh"\n' >> "$HOME/.bashrc"
-  ok "kid, kid-projects, start-kid, new-kid-project, kid-office, kid-update, kid-online, kid-models, kid-gemini, kid-api, kid-gateway, kid-clone"
+  ok "kid, kid-projects, start-kid, new-kid-project, kid-office, kid-update, kid-online, kid-models, kid-gemini, kid-api, kid-gateway, kid-clone, kid-caveman"
 }
 
 phase_github() {

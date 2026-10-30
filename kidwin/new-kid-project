@@ -154,6 +154,7 @@ Then stage only docs/ CLAUDE.md AGENTS.md .astraler/state and commit with messag
     2>&1 | tail -8
 fi
 command -v kid-models >/dev/null && kid-models "$NAME" || true   # KID on Opus, the rest on Sonnet
+command -v kid-caveman >/dev/null && kid-caveman on "$NAME" || true   # short chat, saves tokens
 git add -A docs CLAUDE.md AGENTS.md .astraler/state 2>/dev/null
 git diff --cached --quiet || git commit -q -m "Team KID project setup"
 git push -q -u origin HEAD 2>/dev/null && ok "đã push" || warn "chưa push được"

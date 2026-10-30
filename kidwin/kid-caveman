@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# kid-caveman — every role in Team KID talks short ("caveman") in chat to save tokens.
+#   kid-caveman on [project…]    add .claude/rules/team-kid-caveman.md and commit it
+#   kid-caveman off [project…]   take it out again (git rm + commit; history keeps it)
+#   kid-caveman status
+# Code, commits, tickets, specs and every gate-parsed line stay normal (see the rule file).
+set -euo pipefail
+TPL="$HOME/.teamkid/project-template/rules/team-kid-caveman.md"
+REL=.claude/rules/team-kid-caveman.md
+ok() { printf '  \033[32m✔\033[0m %s\n' "$*"; }
+mode="${1:-status}"; shift || true
+ps=("$@"); [ ${#ps[@]} -gt 0 ] || mapfile -t ps < <(kid-projects 2>/dev/null || "$(dirname "$0")/kid-projects")
+for p in "${ps[@]}"; do
+  d="$HOME/$p"; [ -d "$d/.git" ] || continue
+  case "$mode" in
+    on)
+      # committed, so every Builder worktree (cut from main) carries it too
+      if cmp -s "$TPL" "$d/$REL"; then ok "$p: đã bật"; continue; fi
+      mkdir -p "$d/.claude/rules" && cp "$TPL" "$d/$REL"
+      git -C "$d" add "$REL" && git -C "$d" commit -q -m "Team KID: caveman talk in chat to save tokens" -- "$REL" && ok "$p: bật caveman" ;;
+    off)
+      if [ -f "$d/$REL" ]; then git -C "$d" rm -q "$REL" && git -C "$d" commit -q -m "Team KID: caveman talk off" -- "$REL" && ok "$p: tắt caveman"; else ok "$p: đang tắt"; fi ;;
+    *) [ -f "$d/$REL" ] && echo "  $p: caveman BẬT" || echo "  $p: caveman tắt" ;;
+  esac
+done
+[ "$mode" = status ] || echo "  Có hiệu lực với agent mở sau lúc này; KID: mở lại bằng Start KID."
